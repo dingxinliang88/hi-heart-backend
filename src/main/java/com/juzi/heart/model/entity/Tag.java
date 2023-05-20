@@ -34,10 +34,10 @@ public class Tag implements Serializable {
     /**
      * 标识是否为父标签（0 - 不是，1 - 是），默认值为0
      */
-    private Integer isParent;
+    private Integer hasChildren;
 
     /**
-     * 父标签id（分类用，自身是父标签值为-1，非空）
+     * 父标签id（分类用，自身是父标签值为0，非空）
      */
     private Long parentId;
 

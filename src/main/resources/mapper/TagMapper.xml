@@ -5,19 +5,25 @@
 <mapper namespace="com.juzi.heart.mapper.TagMapper">
 
     <resultMap id="BaseResultMap" type="com.juzi.heart.model.entity.Tag">
-            <id property="id" column="id" jdbcType="BIGINT"/>
-            <result property="tagName" column="tagName" jdbcType="VARCHAR"/>
-            <result property="userId" column="userId" jdbcType="BIGINT"/>
-            <result property="isParent" column="isParent" jdbcType="TINYINT"/>
-            <result property="parentId" column="parentId" jdbcType="BIGINT"/>
-            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
-            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="tagName" column="tagName" jdbcType="VARCHAR"/>
+        <result property="userId" column="userId" jdbcType="BIGINT"/>
+        <result property="hasChildren" column="hasChildren" jdbcType="TINYINT"/>
+        <result property="parentId" column="parentId" jdbcType="BIGINT"/>
+        <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+        <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id,tagName,userId,
-        isParent,parentId,createTime,
+        hasChildren,parentId,createTime,
         updateTime,isDelete
     </sql>
+    <update id="migrateChildTags">
+        update `tag`
+        set parentId = #{newParentId}
+        where isDelete = 0
+          and parentId = #{oldParentId};
+    </update>
 </mapper>

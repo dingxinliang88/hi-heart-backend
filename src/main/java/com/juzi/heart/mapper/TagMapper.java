@@ -13,6 +13,14 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface TagMapper extends BaseMapper<Tag> {
 
+    /**
+     * 迁移子标签到新的父标签
+     *
+     * @param newParentId 新父标签id
+     * @param oldParentId 老父标签id
+     * @return true - 迁移成功
+     */
+    Boolean migrateChildTags(Long newParentId, Long oldParentId);
 }
 
 
