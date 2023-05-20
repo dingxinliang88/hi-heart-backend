@@ -2,10 +2,17 @@ package com.juzi.heart.service;
 
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
 import com.juzi.heart.model.entity.User;
+import com.juzi.heart.model.vo.user.UserVO;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.util.StopWatch;
 
 import javax.annotation.Resource;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -14,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 class UserServiceTest {
+
+    private static final Logger log = LoggerFactory.getLogger(UserServiceTest.class);
 
     @Resource
     private UserService userService;
@@ -112,7 +121,7 @@ class UserServiceTest {
         userService.userRegister(userRegisterRequest);
     }
 
-    @Test
+//    @Test
     void registerSuccess() {
         UserRegisterRequest userRegisterRequest = new UserRegisterRequest();
         // 正常插入
@@ -123,5 +132,38 @@ class UserServiceTest {
         System.out.println("userId = " + userId);
     }
 
+    @Test
+    void doQuery() {
+        userService.list();
+    }
 
+
+    @Test
+    void queryUserByTagListUseSql() {
+        List<String> tagList = Arrays.asList("Java", "爱闹");
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        List<UserVO> userVOList = userService.queryUserByTagListUseSql(tagList);
+        stopWatch.stop();
+        log.info("===========> Use Sql, {}ms", stopWatch.getTotalTimeMillis());
+        System.out.println("userVOList = " + userVOList);
+    }
+
+    @Test
+    void queryUserByTagListUseMemory() {
+        List<String> tagList = Arrays.asList("Java", "爱闹");
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        List<UserVO> userVOList = userService.queryUserByTagListUseMemory(tagList);
+        stopWatch.stop();
+        log.info("===========> Use Memory, {}ms", stopWatch.getTotalTimeMillis());
+        System.out.println("userVOList = " + userVOList);
+    }
+
+    @Test
+    void doTest() {
+        doQuery();
+        queryUserByTagListUseMemory();
+        queryUserByTagListUseSql();
+    }
 }

@@ -80,4 +80,38 @@ public interface UserService extends IService<User> {
      * @return user vo list
      */
     List<UserVO> listUserVO();
+
+    /**
+     * 根据标签列表来查询用户信息（具体使用SQL过滤还是内存过滤，看实际情况）
+     * 目前数据量不大的情况下，SQL有一点点优势
+     *
+     * @param tagList 标签列表
+     * @return user vo list
+     */
+    List<UserVO> queryUserByTagList(List<String> tagList);
+
+    /**
+     * 根据标签列表来查询用户信息（使用SQL过滤）
+     *
+     * @param tagList 标签列表
+     * @return user vo list
+     */
+    List<UserVO> queryUserByTagListUseSql(List<String> tagList);
+
+
+    /**
+     * 根据标签列表来查询用户信息（使用内存过滤）
+     *
+     * @param tagList 标签列表
+     * @return user vo list
+     */
+    List<UserVO> queryUserByTagListUseMemory(List<String> tagList);
+
+    /**
+     * 得到user vo对象
+     *
+     * @param originUser 原始user对象
+     * @return 脱敏后的user对象 user vo
+     */
+    UserVO getUserVO(User originUser);
 }

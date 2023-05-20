@@ -2,6 +2,8 @@ package com.juzi.heart.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.mapper.UserMapper;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
@@ -15,13 +17,14 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.UserConstants.*;
@@ -149,11 +152,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public List<UserVO> listUserVO() {
         List<User> userList = this.list();
-        return userList.stream().map(user -> {
-            UserVO userVO = new UserVO();
-            BeanUtils.copyProperties(user, userVO);
-            return userVO;
-        }).collect(Collectors.toList());
+        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UserVO> queryUserByTagList(List<String> tagList) {
+        return queryUserByTagListUseSql(tagList);
+    }
+
+    @Override
+    public List<UserVO> queryUserByTagListUseSql(List<String> tagList) {
+        ThrowUtils.throwIf(CollectionUtils.isEmpty(tagList), StatusCode.PARAMS_ERROR, "查询标签为空");
+        // like 连接
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        for (String tag : tagList) {
+            queryWrapper.like(User::getTags, tag);
+        }
+        List<User> userList = this.list(queryWrapper);
+        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Deprecated
+    public List<UserVO> queryUserByTagListUseMemory(List<String> tagList) {
+        ThrowUtils.throwIf(CollectionUtils.isEmpty(tagList), StatusCode.PARAMS_ERROR, "查询标签为空");
+        // 先查出所有的用户
+        List<User> userList = this.list();
+        // 在内存中过滤出匹配的用户
+        Gson gson = new Gson();
+        return userList.stream().filter(user -> {
+            String tagStr = user.getTags();
+            if (StringUtils.isBlank(tagStr)) {
+                return false;
+            }
+            @SuppressWarnings("UnstableApiUsage")
+            Type setType = new TypeToken<Set<String>>() {
+            }.getType();
+            Set<String> tmpTagNameSet = gson.fromJson(tagStr, setType);
+            // 判空
+            tmpTagNameSet = Optional.ofNullable(tmpTagNameSet).orElse(new HashSet<>());
+            for (String tagName : tagList) {
+                if (!tmpTagNameSet.contains(tagName)) {
+                    return false;
+                }
+            }
+            return true;
+        }).map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public UserVO getUserVO(User originUser) {
+        UserVO userVO = new UserVO();
+        BeanUtils.copyProperties(originUser, userVO);
+        return userVO;
     }
 }
 

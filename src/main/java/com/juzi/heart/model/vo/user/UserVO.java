@@ -52,6 +52,11 @@ public class UserVO {
     private Integer userRole;
 
     /**
+     * 标签列表
+     */
+    private String tags;
+
+    /**
      * 创建时间
      */
     private Date createTime;
