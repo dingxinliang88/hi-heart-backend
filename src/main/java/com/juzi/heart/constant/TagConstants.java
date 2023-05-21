@@ -18,9 +18,13 @@ public interface TagConstants {
     Integer HAS_NO_CHILDREN = 0;
 
 
-
     /**
      * 父标签的父标签id
      */
     Long DEFAULT_PARENT_ID = 0L;
+
+    /**
+     * 默认分组
+     */
+    String DEFAULT_GROUP = "default_children_group";
 }

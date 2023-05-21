@@ -57,6 +57,13 @@ public class UserController {
         return ResultUtils.success(userVOList);
     }
 
+    @GetMapping("/query/tags")
+    public BaseResponse<List<UserVO>> queryUserByTagList(@RequestParam(required = false) List<String> tagList) {
+        ThrowUtils.throwIf(Objects.isNull(tagList) || tagList.isEmpty(), StatusCode.PARAMS_ERROR, "查询请求不能为空！");
+        List<UserVO> userVOList = userService.queryUserByTagList(tagList);
+        return ResultUtils.success(userVOList);
+    }
+
     @AuthCheck(mustRole = "admin")
     @DeleteMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestParam("userId") Long userId) {

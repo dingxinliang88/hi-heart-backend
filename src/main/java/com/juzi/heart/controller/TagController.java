@@ -6,6 +6,7 @@ import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
 import com.juzi.heart.model.entity.Tag;
+import com.juzi.heart.model.vo.tag.TagVO;
 import com.juzi.heart.service.TagService;
 import com.juzi.heart.utils.ResultUtils;
 import com.juzi.heart.utils.ThrowUtils;
@@ -49,6 +50,12 @@ public class TagController {
         List<Tag> tagList = tagService.queryTagByParentId(parentId);
         String message = Objects.isNull(tagList) ? "没有查到哦～" : "查询成功";
         return ResultUtils.success(tagList, message);
+    }
+
+    @GetMapping("/tag_list")
+    public BaseResponse<List<TagVO>> listTag() {
+        List<TagVO> tagVOList = tagService.listTag();
+        return ResultUtils.success(tagVOList);
     }
 
     @PutMapping("/edit")

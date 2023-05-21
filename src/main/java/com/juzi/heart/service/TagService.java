@@ -5,6 +5,7 @@ import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
 import com.juzi.heart.model.entity.Tag;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.juzi.heart.model.vo.tag.TagVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -40,6 +41,15 @@ public interface TagService extends IService<Tag> {
      * @return tag list
      */
     List<Tag> queryTagByParentId(Long parentId);
+
+    /**
+     * 获取所有的标签列表（父子标签）
+     * 按照父标签分组，同时带有其子标签
+     *
+     * @return tag vo list
+     */
+    List<TagVO> listTag();
+
 
     /**
      * 修改标签信息（本人 || 管理员）

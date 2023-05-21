@@ -11,6 +11,7 @@ import com.juzi.heart.mapper.TagMapper;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
 import com.juzi.heart.model.entity.Tag;
+import com.juzi.heart.model.vo.tag.TagVO;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TagService;
 import com.juzi.heart.service.UserService;
@@ -21,8 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.TagConstants.*;
@@ -61,8 +61,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
             // 如果不是添加的父标签，校验所属的父标签是否存在
             Tag tag = this.getById(parentId);
             ThrowUtils.throwIf(Objects.isNull(tag), StatusCode.NOT_FOUND_ERROR, "对应的父标签不存在");
-        }
-        else {
+        } else {
             // 添加的是父标签，只有管理员可以添加父标签
             ThrowUtils.throwIf(!ADMIN.equals(loginUser.getUserRole()), StatusCode.NO_AUTH_ERROR, "你不能添加父标签！");
             hasChildren = HAS_CHILDREN;
@@ -95,6 +94,37 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Tag::getParentId, parentTag.getId());
         return this.list(queryWrapper);
+    }
+
+    @Override
+    public List<TagVO> listTag() {
+        List<Tag> tagList = this.list();
+        // 分组，按照父标签名称 || 默认分组（存放所有的子标签）
+        Map<String, List<Tag>> parentTagMap = tagList.stream()
+                .collect(Collectors.groupingBy(tag -> {
+                    if (tag.getParentId() == 0) {
+                        return tag.getTagName();
+                    } else {
+                        // 根据父标签id获取父标签名称
+                        return tagList.stream()
+                                .filter(t -> t.getId().equals(tag.getParentId()))
+                                .map(Tag::getTagName)
+                                .findFirst().orElse(DEFAULT_GROUP);
+                    }
+                }));
+
+        List<TagVO> result = new ArrayList<>();
+        for (String parentTagName : parentTagMap.keySet()) {
+            List<Tag> childrenTags = parentTagMap.get(parentTagName);
+            List<String> childTagNameList = childrenTags.stream()
+                    .map(Tag::getTagName)
+                    .collect(Collectors.toList());
+            TagVO tagVO = new TagVO();
+            tagVO.setParentTagName(parentTagName);
+            tagVO.setChildTagNameList(childTagNameList);
+            result.add(tagVO);
+        }
+        return result;
     }
 
     @Override
