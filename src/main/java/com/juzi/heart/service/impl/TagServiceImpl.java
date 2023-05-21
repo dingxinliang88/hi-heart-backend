@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+
 import static com.juzi.heart.constant.TagConstants.*;
 import static com.juzi.heart.constant.UserConstants.ADMIN;
 
@@ -64,8 +65,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
             // 如果不是添加的父标签，校验所属的父标签是否存在
             Tag tag = this.getById(parentId);
             ThrowUtils.throwIf(Objects.isNull(tag), StatusCode.NOT_FOUND_ERROR, "对应的父标签不存在");
-        }
-        else {
+        } else {
             // 添加的是父标签，只有管理员可以添加父标签
             ThrowUtils.throwIf(!ADMIN.equals(loginUser.getUserRole()), StatusCode.NO_AUTH_ERROR, "你不能添加父标签！");
             hasChildren = HAS_CHILDREN;
