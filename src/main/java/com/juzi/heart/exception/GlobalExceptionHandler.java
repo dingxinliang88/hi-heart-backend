@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(value = BusinessException.class)
+    @ExceptionHandler(BusinessException.class)
     public BaseResponse<?> businessExceptionHandler(BusinessException businessException) {
         log.error("BusinessException: ", businessException);
         return ResultUtils.error(businessException.getCode(), businessException.getMessage());
     }
 
-    @ExceptionHandler(value = Exception.class)
+    @ExceptionHandler(Exception.class)
     public BaseResponse<?> otherExceptionHandler(Exception e) {
         log.error("BusinessException: ", e);
         return ResultUtils.error(StatusCode.SYSTEM_ERROR);

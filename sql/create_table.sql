@@ -8,6 +8,7 @@ CREATE TABLE `user`
     userAccount  VARCHAR(8)                         NOT NULL COMMENT '登录账号，非空，最大为8位',
     userPassword VARCHAR(255)                       NOT NULL COMMENT '密码，非空，以加密的方式存入数据库，用户填写的密码不得少于8位',
     userAvatar   VARCHAR(255)                       NULL COMMENT '用户头像图片地址，代码层面给默认值',
+    userProfile  VARCHAR(1024)                      NULL COMMENT '用户简介',
     gender       TINYINT                            NULL COMMENT '性别：1 - 男，0 - 女',
     phone        VARCHAR(11)                        NULL COMMENT '手机号，允许为空',
     email        VARCHAR(255)                       NULL COMMENT '邮箱。允许为空',

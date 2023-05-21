@@ -31,7 +31,7 @@ public class LogAspect {
      * @return 方法执行结果
      */
     @Around("execution(* com.juzi.heart.controller.*.*(..))")
-    public Object doLog(ProceedingJoinPoint joinPoint) {
+    public Object doLog(ProceedingJoinPoint joinPoint) throws Throwable {
         // 开始计时
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -55,17 +55,11 @@ public class LogAspect {
         log.info("=========> request start, id: {}, path: {}, ip: {}, params: {}",
                 requestId, requestURI, remoteHost, reqParams);
 
-        // 执行愿方法
-        Object result = null;
-        try {
-            result = joinPoint.proceed(args);
-        } catch (Throwable e) {
-            log.error("log aspect error, ", e);
-        }
+        // 执行原方法
+        Object result = joinPoint.proceed(args);
 
         // 停止计时
         stopWatch.stop();
-
         // 输出响应日志
         long totalTimeMillis = stopWatch.getTotalTimeMillis();
         log.info("<======== request stop, id: {}, cost: {}ms", requestId, totalTimeMillis);

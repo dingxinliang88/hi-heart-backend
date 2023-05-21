@@ -2,6 +2,7 @@ package com.juzi.heart.model.vo.user;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -10,7 +11,9 @@ import java.util.Date;
  * @author codejuzi
  */
 @Data
-public class UserVO {
+public class UserVO implements Serializable {
+
+    private static final long serialVersionUID = -1875100032388238844L;
     /**
      * 主键、自增、非空
      */
@@ -30,6 +33,11 @@ public class UserVO {
      * 用户头像图片地址，代码层面给默认值
      */
     private String userAvatar;
+
+    /**
+     * 用户简介
+     */
+    private String userProfile;
 
     /**
      * 性别：1-男，0-女
