@@ -1,13 +1,17 @@
 package com.juzi.heart.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.juzi.heart.common.StatusCode;
+import com.juzi.heart.manager.AuthManager;
+import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.UserMapper;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
+import com.juzi.heart.model.dto.user.UserUpdateRequest;
 import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.UserService;
@@ -20,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.lang.reflect.Type;
@@ -37,6 +42,12 @@ import static com.juzi.heart.constant.UserConstants.*;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+
+    @Resource
+    private AuthManager authManager;
+    
+    @Resource
+    private UserManager userManager;
 
     @Override
     public Long userRegister(UserRegisterRequest userRegisterRequest) {
@@ -78,12 +89,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String userPassword = userLoginRequest.getUserPassword();
         ValidCheckUtils.checkLoginParams(userAccount, userPassword);
 
-        UserVO loginUser = this.getLoginUserPermitNull(request);
+        UserVO loginUser = userManager.getLoginUserPermitNull(request);
         if (loginUser != null) {
             return loginUser;
         }
         synchronized (userAccount.intern()) {
-            loginUser = this.getLoginUserPermitNull(request);
+            loginUser = userManager.getLoginUserPermitNull(request);
             if (loginUser != null) {
                 return loginUser;
             }
@@ -109,19 +120,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
     }
 
-    @Override
-    public UserVO getLoginUser(HttpServletRequest request) {
-        HttpSession session = request.getSession();
-        UserVO loginUserVO = (UserVO) session.getAttribute(USER_LOGIN_STATUS_KEY);
-        ThrowUtils.throwIf(Objects.isNull(loginUserVO), StatusCode.NOT_LOGIN_ERROR, "当前状态未登录");
-        return loginUserVO;
-    }
 
-    @Override
-    public UserVO getLoginUserPermitNull(HttpServletRequest request) {
-        HttpSession session = request.getSession();
-        return (UserVO) session.getAttribute(USER_LOGIN_STATUS_KEY);
-    }
 
     @Override
     public List<User> queryUser(String searchText) {
@@ -142,7 +141,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public Boolean userLogout(HttpServletRequest request) {
-        UserVO loginUser = this.getLoginUser(request);
+        UserVO loginUser = userManager.getLoginUser(request);
         ThrowUtils.throwIf(Objects.isNull(loginUser), StatusCode.NOT_LOGIN_ERROR, "当前尚未登录");
         HttpSession session = request.getSession();
         session.removeAttribute(USER_LOGIN_STATUS_KEY);
@@ -198,6 +197,38 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             return true;
         }).map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public Boolean updateUser(UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(userUpdateRequest), StatusCode.PARAMS_ERROR, "用户修改信息为空！");
+        Long id = userUpdateRequest.getId();
+        authManager.adminOrMe(id, request);
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(User::getId, id);
+
+        String userName = userUpdateRequest.getUserName();
+        updateWrapper.set(StringUtils.isNotBlank(userName), User::getUserName, userName);
+
+        String userAvatar = userUpdateRequest.getUserAvatar();
+        updateWrapper.set(StringUtils.isNotBlank(userAvatar), User::getUserAvatar, userAvatar);
+
+        String userProfile = userUpdateRequest.getUserProfile();
+        updateWrapper.set(StringUtils.isNotBlank(userProfile), User::getUserProfile, userProfile);
+
+        Integer gender = userUpdateRequest.getGender();
+        updateWrapper.set(MAN.equals(gender) || WOMAN.equals(gender), User::getGender, gender);
+
+        String phone = userUpdateRequest.getPhone();
+        updateWrapper.set(StringUtils.isNotBlank(phone), User::getPhone, phone);
+
+        String email = userUpdateRequest.getEmail();
+        updateWrapper.set(StringUtils.isNotBlank(email), User::getEmail, email);
+
+        String tags = userUpdateRequest.getTags();
+        updateWrapper.set(StringUtils.isNotBlank(tags), User::getTags, tags);
+
+        return this.update(updateWrapper);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.juzi.heart.service;
 
 import com.juzi.heart.model.dto.user.UserLoginRequest;
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
+import com.juzi.heart.model.dto.user.UserUpdateRequest;
 import com.juzi.heart.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.juzi.heart.model.vo.user.UserVO;
@@ -32,22 +33,6 @@ public interface UserService extends IService<User> {
      * @return UserVO, 脱敏后的用户数据
      */
     UserVO userLogin(UserLoginRequest userLoginRequest, HttpServletRequest request);
-
-    /**
-     * 获取当前登录用户
-     *
-     * @param request http request
-     * @return UserVO，登录态中的用户信息
-     */
-    UserVO getLoginUser(HttpServletRequest request);
-
-    /**
-     * 获取当前登录用户，允许为空
-     *
-     * @param request http request
-     * @return UserVO，登录态中的用户信息
-     */
-    UserVO getLoginUserPermitNull(HttpServletRequest request);
 
     /**
      * 根据搜索关键词来模糊匹配userName、 userAccount查找用户。
@@ -106,6 +91,15 @@ public interface UserService extends IService<User> {
      * @return user vo list
      */
     List<UserVO> queryUserByTagListUseMemory(List<String> tagList);
+
+    /**
+     * 修改用户信息
+     *
+     * @param userUpdateRequest 用户修改请求封装信息
+     * @param request           http request
+     * @return true - 修改成功
+     */
+    Boolean updateUser(UserUpdateRequest userUpdateRequest, HttpServletRequest request);
 
     /**
      * 得到user vo对象

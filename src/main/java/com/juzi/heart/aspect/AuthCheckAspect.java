@@ -3,9 +3,9 @@ package com.juzi.heart.aspect;
 import com.juzi.heart.annotations.AuthCheck;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.constant.UserConstants;
+import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.model.enums.UserRoleEnums;
 import com.juzi.heart.model.vo.user.UserVO;
-import com.juzi.heart.service.UserService;
 import com.juzi.heart.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -30,7 +30,7 @@ import java.util.Objects;
 public class AuthCheckAspect {
 
     @Resource
-    private UserService userService;
+    private UserManager userManager;
 
     @Around("@annotation(authCheck)")
     public Object doAuthCheck(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
@@ -49,7 +49,8 @@ public class AuthCheckAspect {
             request = ((ServletRequestAttributes) requestAttributes).getRequest();
         }
         // 获取当前登录用户
-        UserVO loginUser = userService.getLoginUser(request);
+        assert request != null;
+        UserVO loginUser = userManager.getLoginUser(request);
         // 获取用户角色及对应的枚举值
         Integer userRole = loginUser.getUserRole();
         UserRoleEnums userRoleEnum = UserRoleEnums.getEnumByUserRole(userRole);

@@ -7,6 +7,7 @@ import com.juzi.heart.common.DeleteRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
+import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TagMapper;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
@@ -14,7 +15,6 @@ import com.juzi.heart.model.entity.Tag;
 import com.juzi.heart.model.vo.tag.TagVO;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TagService;
-import com.juzi.heart.service.UserService;
 import com.juzi.heart.utils.ThrowUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -41,7 +41,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         implements TagService {
 
     @Resource
-    private UserService userService;
+    private UserManager userManager;
 
     @Resource
     private TagMapper tagMapper;
@@ -58,7 +58,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         ThrowUtils.throwIf(StringUtils.isBlank(tagName), StatusCode.PARAMS_ERROR, "标签名不能为空！");
         ThrowUtils.throwIf(parentId < 0, StatusCode.PARAMS_ERROR, "id不能小于0！");
         // 获取当前登录用户
-        UserVO loginUser = userService.getLoginUser(request);
+        UserVO loginUser = userManager.getLoginUser(request);
         Integer hasChildren = HAS_CHILDREN;
         if (!DEFAULT_PARENT_ID.equals(parentId)) {
             // 如果不是添加的父标签，校验所属的父标签是否存在
@@ -136,7 +136,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         Long parentId = tagEditRequest.getParentId();
         ThrowUtils.throwIf(id <= 0L, StatusCode.PARAMS_ERROR, "修改标签参数不合法！");
         ThrowUtils.throwIf(parentId < 0L, StatusCode.PARAMS_ERROR, "修改标签参数不合法！");
-        UserVO loginUser = userService.getLoginUser(request);
+        UserVO loginUser = userManager.getLoginUser(request);
         Tag editTag = this.getById(id);
         ThrowUtils.throwIf(Objects.isNull(editTag), StatusCode.NOT_FOUND_ERROR, "要修改的标签不存在！");
         boolean isAdmin = ADMIN.equals(loginUser.getUserRole());

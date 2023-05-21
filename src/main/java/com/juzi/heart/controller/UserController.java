@@ -3,8 +3,10 @@ package com.juzi.heart.controller;
 import com.juzi.heart.annotations.AuthCheck;
 import com.juzi.heart.common.BaseResponse;
 import com.juzi.heart.common.StatusCode;
+import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
+import com.juzi.heart.model.dto.user.UserUpdateRequest;
 import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.UserService;
@@ -28,6 +30,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private UserManager userManager;
 
     @PostMapping("/register")
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
@@ -64,6 +69,13 @@ public class UserController {
         return ResultUtils.success(userVOList);
     }
 
+    @PutMapping("/update")
+    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(userUpdateRequest), StatusCode.PARAMS_ERROR, "用户修改信息为空！");
+        Boolean updateRes = userService.updateUser(userUpdateRequest, request);
+        return ResultUtils.success(updateRes);
+    }
+
     @AuthCheck(mustRole = "admin")
     @DeleteMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestParam("userId") Long userId) {
@@ -72,7 +84,7 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
-    @PutMapping("/logout")
+    @PostMapping("/logout")
     public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         Boolean result = userService.userLogout(request);
         return ResultUtils.success(result, "登出成功");
@@ -80,7 +92,7 @@ public class UserController {
 
     @GetMapping("/current")
     public BaseResponse<UserVO> getLoginUserVO(HttpServletRequest request) {
-        UserVO loginUserVO = userService.getLoginUser(request);
+        UserVO loginUserVO = userManager.getLoginUser(request);
         return ResultUtils.success(loginUserVO);
     }
 }

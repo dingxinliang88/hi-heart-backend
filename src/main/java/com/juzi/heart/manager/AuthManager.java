@@ -2,7 +2,6 @@ package com.juzi.heart.manager;
 
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.vo.user.UserVO;
-import com.juzi.heart.service.UserService;
 import com.juzi.heart.utils.ThrowUtils;
 import org.springframework.stereotype.Service;
 
@@ -18,10 +17,10 @@ import static com.juzi.heart.constant.UserConstants.ADMIN;
 public class AuthManager {
 
     @Resource
-    private UserService userService;
+    private UserManager userManager;
 
     public void adminOrMe(Long checkedUserId, HttpServletRequest request) {
-        UserVO loginUser = userService.getLoginUser(request);
+        UserVO loginUser = userManager.getLoginUser(request);
         boolean isAdmin = ADMIN.equals(loginUser.getUserRole());
         boolean isMe = checkedUserId.equals(loginUser.getId());
         // 管理员 || 自己

@@ -24,3 +24,4 @@ server:
       cookie:
         # cookie过期时间 30天
         max-age: 2592000  # 30 * 24 * 60 * 60
+        domain: localhost

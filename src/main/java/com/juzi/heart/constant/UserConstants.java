@@ -46,6 +46,9 @@ public interface UserConstants {
      * 用户登录态键
      */
     String USER_LOGIN_STATUS_KEY = "user_login";
+
+    Integer MAN = 1;
+    Integer WOMAN = 2;
     // endregion
 
     // region 用户角色
