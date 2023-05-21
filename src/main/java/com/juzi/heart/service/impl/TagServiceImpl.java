@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-
 import static com.juzi.heart.constant.TagConstants.*;
 import static com.juzi.heart.constant.UserConstants.ADMIN;
 
@@ -95,6 +94,37 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Tag::getParentId, parentTag.getId());
         return this.list(queryWrapper);
+    }
+
+    @Override
+    public List<TagVO> listTag() {
+        List<Tag> tagList = this.list();
+        // 分组，按照父标签名称 || 默认分组（存放所有的子标签）
+        Map<String, List<Tag>> parentTagMap = tagList.stream()
+                .collect(Collectors.groupingBy(tag -> {
+                    if (tag.getParentId() == 0) {
+                        return tag.getTagName();
+                    } else {
+                        // 根据父标签id获取父标签名称
+                        return tagList.stream()
+                                .filter(t -> t.getId().equals(tag.getParentId()))
+                                .map(Tag::getTagName)
+                                .findFirst().orElse(DEFAULT_GROUP);
+                    }
+                }));
+
+        List<TagVO> result = new ArrayList<>();
+        for (String parentTagName : parentTagMap.keySet()) {
+            List<Tag> childrenTags = parentTagMap.get(parentTagName);
+            List<String> childTagNameList = childrenTags.stream()
+                    .map(Tag::getTagName)
+                    .collect(Collectors.toList());
+            TagVO tagVO = new TagVO();
+            tagVO.setParentTagName(parentTagName);
+            tagVO.setChildTagNameList(childTagNameList);
+            result.add(tagVO);
+        }
+        return result;
     }
 
     @Override
