@@ -68,4 +68,11 @@ public interface TagService extends IService<Tag> {
      * @return true - 删除成功
      */
     Boolean deleteTag(DeleteRequest deleteRequest, HttpServletRequest request);
+
+    /**
+     * 获取所有父标签id
+     *
+     * @return parent tag id list
+     */
+    List<Long> getParentTagIdList();
 }

@@ -40,8 +40,7 @@ import java.util.stream.Collectors;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.UserConstants.*;
-import static com.juzi.heart.constant.UserRedisConstants.RECOMMEND_USER_KEY_PREFIX;
-import static com.juzi.heart.constant.UserRedisConstants.REC_CACHE_TTL;
+import static com.juzi.heart.constant.UserRedisConstants.*;
 
 /**
  * @author codejuzi
@@ -249,27 +248,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return userVO;
     }
 
-    @Override
-    public Page<UserVO> listUserVOByPage(PageRequest pageRequest) {
-        Integer pageNum = pageRequest.getPageNum();
-        Integer pageSize = pageRequest.getPageSize();
-        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
-        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
-        Page<User> userPage = this.page(new Page<>(pageNum, pageSize));
-        List<UserVO> userVOList = userPage.getRecords().stream().map(this::getUserVO).collect(Collectors.toList());
-        Page<UserVO> userVOPage = new Page<>(
-                userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
-        );
-        userVOPage.setRecords(userVOList);
-        return userVOPage;
-    }
-
     @SuppressWarnings("unchecked")
     @Override
-    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
-        UserVO loginUser = userManager.getLoginUser(request);
+    public Page<UserVO> listUserVOByPage(PageRequest pageRequest, HttpServletRequest request) {
+        UserVO loginUser = userManager.getLoginUserPermitNull(request);
+        // 未登录，则默认展示1L号用户的推荐名单
+        Long loginUserId = 2L;
+        if (!Objects.isNull(loginUser)) {
+            // 已登录
+            loginUserId = loginUser.getId();
+        }
         // 读缓存
-        String recommendUserKey = String.format("%s:%s", RECOMMEND_USER_KEY_PREFIX, loginUser.getId());
+        String recommendUserKey = String.format("%s:%s", CACHE_INDEX_PAGE_USER_KEY_PREFIX, loginUserId);
         ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
         Object cachePage = valueOperations.get(recommendUserKey);
         ThrowUtils.throwIf(!Objects.isNull(cachePage) && !(cachePage instanceof Page),
@@ -278,6 +268,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!Objects.isNull(cachePage)) {
             return (Page<UserVO>) cachePage;
         }
+        Page<UserVO> userVOPage = this.doGetUserVOPage(pageRequest);
+        // 写缓存
+        try {
+            valueOperations.set(recommendUserKey, userVOPage, INDEX_CACHE_TTL, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("recommend users, write cache error,", e);
+        }
+        return userVOPage;
+    }
+
+    @Override
+    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
+        // TODO: 2023/5/22 写推荐算法来推荐用户
+        return this.doGetUserVOPage(pageRequest);
+    }
+
+    @Override
+    public Page<UserVO> doGetUserVOPage(PageRequest pageRequest) {
         Integer pageNum = pageRequest.getPageNum();
         Integer pageSize = pageRequest.getPageSize();
         pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
@@ -288,12 +296,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
         );
         userVOPage.setRecords(userVOList);
-        // 写缓存
-        try {
-            valueOperations.set(recommendUserKey, userVOPage, REC_CACHE_TTL, TimeUnit.MILLISECONDS);
-        } catch (Exception e) {
-            log.error("recommend users, write cache error,", e);
-        }
         return userVOPage;
     }
 }

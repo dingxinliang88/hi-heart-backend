@@ -98,6 +98,12 @@ public class UserController {
         return ResultUtils.success(loginUserVO);
     }
 
+    @GetMapping("/list/page")
+    public BaseResponse<Page<UserVO>> listUserVOPage(PageRequest pageRequest, HttpServletRequest request) {
+        Page<UserVO> userVOPage = userService.listUserVOByPage(pageRequest, request);
+        return ResultUtils.success(userVOPage);
+    }
+
     @GetMapping("/recommend")
     public BaseResponse<Page<UserVO>> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
         Page<UserVO> recommendUserPage = userService.recommendUsers(pageRequest, request);

@@ -7,6 +7,7 @@ import com.juzi.heart.common.DeleteRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
+import com.juzi.heart.manager.TagManager;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TagMapper;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
@@ -16,19 +17,25 @@ import com.juzi.heart.model.vo.tag.TagVO;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TagService;
 import com.juzi.heart.utils.ThrowUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.TagConstants.*;
+import static com.juzi.heart.constant.TagRedisConstants.P_TAG_ID_KEY;
+import static com.juzi.heart.constant.TagRedisConstants.TAG_CACHE_KEY;
 import static com.juzi.heart.constant.UserConstants.ADMIN;
 
 /**
@@ -44,10 +51,16 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
     private UserManager userManager;
 
     @Resource
+    private AuthManager authManager;
+
+    @Resource
+    private TagManager tagManager;
+
+    @Resource
     private TagMapper tagMapper;
 
     @Resource
-    private AuthManager authManager;
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public Long addTag(TagAddRequest tagAddRequest, HttpServletRequest request) {
@@ -98,33 +111,22 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
 
     @Override
     public List<TagVO> listTag() {
-        List<Tag> tagList = this.list();
-        // 分组，按照父标签名称 || 默认分组（存放所有的子标签）
-        Map<String, List<Tag>> parentTagMap = tagList.stream()
-                .collect(Collectors.groupingBy(tag -> {
-                    if (tag.getParentId() == 0) {
-                        return tag.getTagName();
-                    } else {
-                        // 根据父标签id获取父标签名称
-                        return tagList.stream()
-                                .filter(t -> t.getId().equals(tag.getParentId()))
-                                .map(Tag::getTagName)
-                                .findFirst().orElse(DEFAULT_GROUP);
-                    }
-                }));
-
-        List<TagVO> result = new ArrayList<>();
-        for (String parentTagName : parentTagMap.keySet()) {
-            List<Tag> childrenTags = parentTagMap.get(parentTagName);
-            List<String> childTagNameList = childrenTags.stream()
-                    .map(Tag::getTagName)
-                    .collect(Collectors.toList());
-            TagVO tagVO = new TagVO();
-            tagVO.setParentTagName(parentTagName);
-            tagVO.setChildTagNameList(childTagNameList);
-            result.add(tagVO);
+        // 先读缓存
+        HashOperations<String, String, List<String>> opsForHash = redisTemplate.opsForHash();
+        Map<String, List<String>> tagMap = opsForHash.entries(TAG_CACHE_KEY);
+        if (ObjectUtils.isNotEmpty(tagMap)) {
+            // 缓存不空，直接返回
+            return tagMap.entrySet().stream().map((entry) -> {
+                TagVO tagVO = new TagVO();
+                tagVO.setParentTagName(entry.getKey());
+                tagVO.setChildTagNameList(entry.getValue());
+                return tagVO;
+            }).collect(Collectors.toList());
         }
-        return result;
+        List<TagVO> tagVOList = tagManager.getTagVOList(this.list());
+        // 写缓存
+        tagManager.cacheTagVOList(tagVOList);
+        return tagVOList;
     }
 
     @Override
@@ -157,8 +159,15 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         // 原本是父标签，现在要改成不是父标签
         if (DEFAULT_PARENT_ID.equals(editTag.getParentId()) && !DEFAULT_PARENT_ID.equals(parentId)) {
             // 判断parentId对应的标签是否是父标签
-            Tag predicateTag = this.getById(parentId);
-            ThrowUtils.throwIf(!DEFAULT_PARENT_ID.equals(predicateTag.getParentId()),
+            SetOperations<String, Object> opsForSet = redisTemplate.opsForSet();
+            Set<Object> parentIdSet = opsForSet.members(P_TAG_ID_KEY);
+            if (ObjectUtils.isEmpty(parentIdSet)) {
+                List<Long> parentTagIdList = this.getParentTagIdList();
+                ThrowUtils.throwIf(!parentTagIdList.contains(parentId),
+                        StatusCode.PARAMS_ERROR, "待挂载的标签不是父标签！");
+                tagManager.cacheParentTagId(parentTagIdList);
+            }
+            ThrowUtils.throwIf(!ObjectUtils.isEmpty(parentIdSet) && !parentIdSet.contains(parentId),
                     StatusCode.PARAMS_ERROR, "待挂载的标签不是父标签！");
             // 获取此父标签下的所有子标签，将其迁移到要修改的parentId对应的父标签下
             // update table tag set parentId = #{newParentId} where isDelete = 0 and parentId = #{id};
@@ -191,8 +200,12 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         // 删除父标签
         return this.removeById(id);
     }
+
+    @Override
+    public List<Long> getParentTagIdList() {
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Tag::getParentId, DEFAULT_PARENT_ID);
+        List<Tag> parentTagList = this.list(queryWrapper);
+        return parentTagList.stream().map(Tag::getId).collect(Collectors.toList());
+    }
 }
-
-
-
-

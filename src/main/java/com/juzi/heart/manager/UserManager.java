@@ -1,14 +1,21 @@
 package com.juzi.heart.manager;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.StatusCode;
+import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.utils.ThrowUtils;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.UserConstants.USER_LOGIN_STATUS_KEY;
 
 /**
@@ -40,4 +47,6 @@ public class UserManager {
         HttpSession session = request.getSession();
         return (UserVO) session.getAttribute(USER_LOGIN_STATUS_KEY);
     }
+
+
 }

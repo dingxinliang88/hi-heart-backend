@@ -112,12 +112,13 @@ public interface UserService extends IService<User> {
     UserVO getUserVO(User originUser);
 
     /**
-     * 分页展示用户
+     * 分页展示用户，缓存 || 数据库
      *
      * @param pageRequest 分页请求信息
+     * @param request     http request
      * @return user vo page
      */
-    Page<UserVO> listUserVOByPage(PageRequest pageRequest);
+    Page<UserVO> listUserVOByPage(PageRequest pageRequest, HttpServletRequest request);
 
     /**
      * 根据用户标签推荐相似用户（分页）
@@ -127,4 +128,12 @@ public interface UserService extends IService<User> {
      * @return user vo page
      */
     Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request);
+
+    /**
+     * 分页获取用户信息
+     *
+     * @param pageRequest 分页请求信息
+     * @return user vo page
+     */
+    Page<UserVO> doGetUserVOPage(PageRequest pageRequest);
 }
