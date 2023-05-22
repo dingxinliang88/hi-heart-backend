@@ -2,12 +2,15 @@ package com.juzi.heart.service.impl;
 
 import java.util.Date;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TeamMapper;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
+import com.juzi.heart.model.dto.team.TeamQueryRequest;
 import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.entity.UserTeam;
 import com.juzi.heart.model.vo.user.UserVO;
@@ -22,8 +25,11 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Objects;
 
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.TeamConstants.*;
 import static com.juzi.heart.constant.UserConstants.ADMIN;
+import static com.juzi.heart.model.enums.TeamStatusEnums.TEAM_STATUS_LIST;
 
 /**
  * @author codejuzi
@@ -100,6 +106,31 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         userTeamService.save(userTeam);
 
         return teamId;
+    }
+
+    @Override
+    public Page<Team> queryTeam(TeamQueryRequest teamQueryRequest) {
+        ThrowUtils.throwIf(Objects.isNull(teamQueryRequest), StatusCode.PARAMS_ERROR, "查询参数不能为空！");
+        String teamName = teamQueryRequest.getTeamName();
+        String description = teamQueryRequest.getDescription();
+        Integer maxNum = teamQueryRequest.getMaxNum();
+        Long createUserId = teamQueryRequest.getCreateUserId();
+        Long leaderId = teamQueryRequest.getLeaderId();
+        Integer status = teamQueryRequest.getStatus();
+        Integer pageNum = teamQueryRequest.getPageNum();
+        Integer pageSize = teamQueryRequest.getPageSize();
+
+        // 封装查询条件
+        LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.like(StringUtils.isNotBlank(teamName), Team::getTeamName, teamName).or()
+                .like(StringUtils.isNotBlank(description), Team::getDescription, description).or()
+                .eq(!Objects.isNull(maxNum) && (maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END), Team::getMaxNum, maxNum).or()
+                .eq(!Objects.isNull(createUserId) && createUserId > 0, Team::getCreateUserId, createUserId).or()
+                .eq(!Objects.isNull(leaderId) && leaderId > 0, Team::getLeaderId, leaderId).or()
+                .eq(!Objects.isNull(status) && TEAM_STATUS_LIST.contains(status) && !ENCRYPTED.equals(status), Team::getStatus, status);
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+        return this.page(new Page<>(pageNum, pageSize), queryWrapper);
     }
 }
 
