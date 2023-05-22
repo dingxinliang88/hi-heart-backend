@@ -16,7 +16,8 @@ CREATE TABLE `user`
     tags         VARCHAR(512)                       NULL COMMENT '标签列表',
     createTime   DATETIME DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间，默认为当前时间',
     updateTime   DATETIME DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，变化时修改为当前时间',
-    isDelete     TINYINT  DEFAULT 0                 NULL COMMENT '是否删除，0 - 未删除，1 - 删除'
+    isDelete     TINYINT  DEFAULT 0                 NULL COMMENT '是否删除，0 - 未删除，1 - 删除',
+    UNIQUE INDEX user_acc_index (userAccount)
 ) COMMENT '用户信息表';
 
 
@@ -54,3 +55,23 @@ INSERT INTO `user` (`id`, `userName`, `userAccount`, `userPassword`, `userAvatar
 VALUES (4, 'User_aCPQBmhWqo', 'dogjuzi', '8b8a9bac6ac20279f6ef4a0b78cc3637',
         'https://photo.16pic.com/00/53/26/16pic_5326745_b.jpg', 0, '2342341', '234524523@123.com', 0,
         '[\"C++\", \"爱闹\", \"大二\"]', '2023-05-17 14:01:09', '2023-05-17 14:52:35', 0);
+
+
+CREATE TABLE `team`
+(
+    `id`           bigint        NOT NULL AUTO_INCREMENT COMMENT '主键、自增、非空',
+    `teamName`     varchar(255)  NOT NULL COMMENT '队伍名称、非空',
+    `description`  varchar(1024) NULL COMMENT '队伍描述，可以为空',
+    `maxNum`       int           NOT NULL DEFAULT 5 COMMENT '队伍最大人数，非空，默认为5',
+    `createUserId` bigint        NOT NULL COMMENT '创建队伍人id，非空，普通索引',
+    `leaderId`     bigint        NOT NULL COMMENT '队长id，非空，普通索引',
+    `status`       tinyint       NOT NULL DEFAULT 0 COMMENT '队伍状态，0 - 公开、1 - 私有，2 - 加密，默认为0',
+    `teamPassword` varchar(128)  NULL COMMENT '队伍密码，只有在队伍状态为加密状态下才有',
+    `teamAvatar`   varchar(255)  NULL COMMENT '队伍封面，可以为空，代码层面给默认值',
+    `createTime`   datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，默认为当前时间',
+    `updateTime`   datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间，默认为当前时间',
+    `isDelete`     tinyint       NOT NULL DEFAULT 0 COMMENT '逻辑删除标志，0 - 未删除、1 - 删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_create_user_id` (`createUserId`),
+    KEY `idx_leader_id` (`leaderId`)
+) COMMENT ='队伍表';
