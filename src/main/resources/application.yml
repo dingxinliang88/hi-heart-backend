@@ -10,11 +10,7 @@ spring:
     store-type: redis
   application:
     name: hi-heart
-  # redis配置
-  redis:
-    host: localhost
-    port: 6379
-    database: 0
+
 
 
 server:

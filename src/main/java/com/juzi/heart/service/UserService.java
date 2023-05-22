@@ -112,6 +112,14 @@ public interface UserService extends IService<User> {
     UserVO getUserVO(User originUser);
 
     /**
+     * 分页展示用户
+     *
+     * @param pageRequest 分页请求信息
+     * @return user vo page
+     */
+    Page<UserVO> listUserVOByPage(PageRequest pageRequest);
+
+    /**
      * 根据用户标签推荐相似用户（分页）
      *
      * @param pageRequest 分页请求信息

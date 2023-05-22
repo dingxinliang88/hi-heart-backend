@@ -22,6 +22,8 @@ import com.juzi.heart.utils.ValidCheckUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
@@ -32,11 +34,14 @@ import javax.servlet.http.HttpSession;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.UserConstants.*;
+import static com.juzi.heart.constant.UserRedisConstants.RECOMMEND_USER_KEY_PREFIX;
+import static com.juzi.heart.constant.UserRedisConstants.REC_CACHE_TTL;
 
 /**
  * @author codejuzi
@@ -52,6 +57,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private UserManager userManager;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public Long userRegister(UserRegisterRequest userRegisterRequest) {
@@ -242,7 +250,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
+    public Page<UserVO> listUserVOByPage(PageRequest pageRequest) {
         Integer pageNum = pageRequest.getPageNum();
         Integer pageSize = pageRequest.getPageSize();
         pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
@@ -253,6 +261,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
         );
         userVOPage.setRecords(userVOList);
+        return userVOPage;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
+        UserVO loginUser = userManager.getLoginUser(request);
+        // 读缓存
+        String recommendUserKey = String.format("%s:%s", RECOMMEND_USER_KEY_PREFIX, loginUser.getId());
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        Object cachePage = valueOperations.get(recommendUserKey);
+        ThrowUtils.throwIf(!Objects.isNull(cachePage) && !(cachePage instanceof Page),
+                StatusCode.SYSTEM_ERROR, "缓存出错！");
+        // 缓存不空，直接返回
+        if (!Objects.isNull(cachePage)) {
+            return (Page<UserVO>) cachePage;
+        }
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+        Page<User> userPage = this.page(new Page<>(pageNum, pageSize));
+        List<UserVO> userVOList = userPage.getRecords().stream().map(this::getUserVO).collect(Collectors.toList());
+        Page<UserVO> userVOPage = new Page<>(
+                userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
+        );
+        userVOPage.setRecords(userVOList);
+        // 写缓存
+        try {
+            valueOperations.set(recommendUserKey, userVOPage, REC_CACHE_TTL, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("recommend users, write cache error,", e);
+        }
         return userVOPage;
     }
 }
