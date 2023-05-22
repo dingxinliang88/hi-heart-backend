@@ -1,5 +1,7 @@
 package com.juzi.heart.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
 import com.juzi.heart.model.dto.user.UserUpdateRequest;
@@ -108,4 +110,13 @@ public interface UserService extends IService<User> {
      * @return 脱敏后的user对象 user vo
      */
     UserVO getUserVO(User originUser);
+
+    /**
+     * 根据用户标签推荐相似用户（分页）
+     *
+     * @param pageRequest 分页请求信息
+     * @param request     http request
+     * @return user vo page
+     */
+    Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request);
 }

@@ -1,7 +1,9 @@
 package com.juzi.heart.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.juzi.heart.annotations.AuthCheck;
 import com.juzi.heart.common.BaseResponse;
+import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
@@ -94,5 +96,11 @@ public class UserController {
     public BaseResponse<UserVO> getLoginUserVO(HttpServletRequest request) {
         UserVO loginUserVO = userManager.getLoginUser(request);
         return ResultUtils.success(loginUserVO);
+    }
+
+    @GetMapping("/recommend")
+    public BaseResponse<Page<UserVO>> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
+        Page<UserVO> recommendUserPage = userService.recommendUsers(pageRequest, request);
+        return ResultUtils.success(recommendUserPage);
     }
 }

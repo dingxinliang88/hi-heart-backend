@@ -2,9 +2,11 @@ package com.juzi.heart.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
+import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.UserManager;
@@ -32,6 +34,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
+import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.UserConstants.*;
 
 /**
@@ -45,7 +49,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private AuthManager authManager;
-    
+
     @Resource
     private UserManager userManager;
 
@@ -119,7 +123,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return userVO;
         }
     }
-
 
 
     @Override
@@ -236,6 +239,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         UserVO userVO = new UserVO();
         BeanUtils.copyProperties(originUser, userVO);
         return userVO;
+    }
+
+    @Override
+    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+        Page<User> userPage = this.page(new Page<>(pageNum, pageSize));
+        List<UserVO> userVOList = userPage.getRecords().stream().map(this::getUserVO).collect(Collectors.toList());
+        Page<UserVO> userVOPage = new Page<>(
+                userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
+        );
+        userVOPage.setRecords(userVOList);
+        return userVOPage;
     }
 }
 
