@@ -31,4 +31,11 @@ class UserTeamMapperTest {
         System.out.println("hasJoinTeamNum = " + hasJoinTeamNum);
     }
 
+    @Test
+    void userHasJoinTeamNum() {
+        Long userId = 4L;
+        Integer hasJoinTeamNum = userTeamMapper.userHasJoinTeamNum(userId);
+        System.out.println("hasJoinTeamNum = " + hasJoinTeamNum);
+    }
+
 }

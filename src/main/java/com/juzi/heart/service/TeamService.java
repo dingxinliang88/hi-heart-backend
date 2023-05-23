@@ -2,6 +2,7 @@ package com.juzi.heart.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
+import com.juzi.heart.model.dto.team.TeamJoinRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
 import com.juzi.heart.model.dto.team.TeamUpdateRequest;
 import com.juzi.heart.model.entity.Team;
@@ -43,5 +44,14 @@ public interface TeamService extends IService<Team> {
      * @return true - 修改成功
      */
     Boolean updateTeam(TeamUpdateRequest teamUpdateRequest, HttpServletRequest request);
+
+    /**
+     * 用户加入队伍
+     *
+     * @param teamJoinRequest 加入队伍封装信息
+     * @param request         http request
+     * @return true - 加入成功
+     */
+    Boolean joinTeam(TeamJoinRequest teamJoinRequest, HttpServletRequest request);
 
 }

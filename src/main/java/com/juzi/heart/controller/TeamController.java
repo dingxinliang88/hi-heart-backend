@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.juzi.heart.common.BaseResponse;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
+import com.juzi.heart.model.dto.team.TeamJoinRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
 import com.juzi.heart.model.dto.team.TeamUpdateRequest;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
@@ -47,5 +48,12 @@ public class TeamController {
         ThrowUtils.throwIf(Objects.isNull(teamUpdateRequest), StatusCode.PARAMS_ERROR, "修改参数不能为空");
         Boolean updateRes = teamService.updateTeam(teamUpdateRequest, request);
         return ResultUtils.success(updateRes, "修改成功");
+    }
+
+    @PostMapping("/join")
+    public BaseResponse<Boolean> joinTeam(@RequestBody TeamJoinRequest teamJoinRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamJoinRequest), StatusCode.PARAMS_ERROR, "加入队伍请求信息不能为空！");
+        Boolean joinRes = teamService.joinTeam(teamJoinRequest, request);
+        return ResultUtils.success(joinRes);
     }
 }

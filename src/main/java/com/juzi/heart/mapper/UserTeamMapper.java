@@ -29,6 +29,14 @@ public interface UserTeamMapper extends BaseMapper<UserTeam> {
      * @return 加入队伍的人数
      */
     Integer hasJoinTeamNum(Long teamId);
+
+    /**
+     * 获取用户已经加入的队伍数量
+     *
+     * @param userId user id
+     * @return 用户加入的队伍数量
+     */
+    Integer userHasJoinTeamNum(Long userId);
 }
 
 

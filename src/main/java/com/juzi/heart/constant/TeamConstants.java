@@ -36,6 +36,11 @@ public interface TeamConstants {
     int USER_CREATE_TEAM_MAX_NUM = 5;
 
     /**
+     * 用户最多能加入的队伍数量
+     */
+    int USER_JOIN_TEAM_MAX_NUM = 20;
+
+    /**
      * 默认队伍简介（简介不填的前提下）
      */
     String DEFAULT_TEAM_DESC = "创建人很懒，还没有写简介--，";
@@ -48,6 +53,11 @@ public interface TeamConstants {
     /**
      * 加密队伍状态
      */
-    Integer ENCRYPTED = 2;
+    Integer CONST_ENCRYPTED = 2;
 
+
+    /**
+     * 私有队伍状态
+     */
+    Integer CONST_PRIVATE = 1;
 }

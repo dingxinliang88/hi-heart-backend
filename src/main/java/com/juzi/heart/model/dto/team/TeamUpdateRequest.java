@@ -13,9 +13,9 @@ public class TeamUpdateRequest implements Serializable {
     private static final long serialVersionUID = 6640885296914307488L;
 
     /**
-     * 主键、自增、非空
+     * 队伍id
      */
-    private Long id;
+    private Long teamId;
 
     /**
      * 队伍名称、非空

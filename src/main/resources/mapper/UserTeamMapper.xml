@@ -31,4 +31,10 @@
         where isDelete = 0
           and teamId = #{teamId};
     </select>
+    <select id="userHasJoinTeamNum" resultType="java.lang.Integer">
+        select count(1) as userHasJoinTeamNum
+        from hi_heart.user_team
+        where isDelete = 0
+          and userId = #{userId};
+    </select>
 </mapper>
