@@ -100,15 +100,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String userPassword = userLoginRequest.getUserPassword();
         ValidCheckUtils.checkLoginParams(userAccount, userPassword);
 
-        UserVO loginUser = userManager.getLoginUserPermitNull(request);
-        if (loginUser != null) {
-            return loginUser;
-        }
         synchronized (userAccount.intern()) {
-            loginUser = userManager.getLoginUserPermitNull(request);
-            if (loginUser != null) {
-                return loginUser;
-            }
             // 校验密码是否正确
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(User::getUserAccount, userAccount);
