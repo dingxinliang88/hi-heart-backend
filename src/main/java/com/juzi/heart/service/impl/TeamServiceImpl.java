@@ -3,15 +3,18 @@ package com.juzi.heart.service.impl;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
+import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TeamMapper;
 import com.juzi.heart.mapper.UserTeamMapper;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
+import com.juzi.heart.model.dto.team.TeamUpdateRequest;
 import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.entity.UserTeam;
@@ -56,6 +59,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     private UserManager userManager;
 
     @Resource
+    private AuthManager authManager;
+
+    @Resource
     private TeamMapper teamMapper;
 
     @Resource
@@ -71,23 +77,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Integer maxNum = teamAddRequest.getMaxNum();
         Integer status = teamAddRequest.getStatus();
         String teamPassword = teamAddRequest.getTeamPassword();
-        String teamAvatar = teamAddRequest.getTeamAvatar();
-        // 队伍标题不能为空 && 队伍标题长度 <= 20
-        ThrowUtils.throwIf(StringUtils.isBlank(teamName), StatusCode.PARAMS_ERROR, "队伍名称不能为空！"
-        );
-        ThrowUtils.throwIf(StringUtils.isNotBlank(teamName) && teamName.length() > TEAM_NAME_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "队伍名称长度不能超过20");
-        // 队伍描述长度<= 512
-        ThrowUtils.throwIf(StringUtils.isNotBlank(description) && description.length() > TEAM_DESC_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "队伍描述过长！");
-        // 队伍最大人数 1 <  maxNum  <= 20
-        ThrowUtils.throwIf(maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END,
-                StatusCode.PARAMS_ERROR, "队伍最大人数在2到20之间！");
-        // status不能为空，默认为公开（0），如果status为加密状态（2），则一定要有密码，且密码长度 <= 32
-        ThrowUtils.throwIf(ENCRYPTED.equals(status) && StringUtils.isBlank(teamPassword),
-                StatusCode.PARAMS_ERROR, "加密队伍密码不能为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(teamAvatar) && teamPassword.length() > TEAM_PWD_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "密码长度不能大于32");
+        checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
+
         // 一个用户最多创建5个队伍
         UserVO loginUser = userManager.getLoginUser(request);
         Long loginUserId = loginUser.getId();
@@ -105,6 +96,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         team.setLeaderId(loginUserId);
         team.setStatus(status);
         team.setTeamPassword(teamPassword);
+        String teamAvatar = teamAddRequest.getTeamAvatar();
         teamAvatar = StringUtils.isBlank(teamAvatar) ? DEFAULT_TEAM_AVATAR : teamAvatar;
         team.setTeamAvatar(teamAvatar);
         this.save(team);
@@ -141,6 +133,37 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         );
         teamUserVOPage.setRecords(teamUserVOList);
         return teamUserVOPage;
+    }
+
+    @Override
+    public Boolean updateTeam(TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamUpdateRequest), StatusCode.PARAMS_ERROR, "修改队伍参数不能为空");
+        Long id = teamUpdateRequest.getId();
+        Team teamFromDb = this.getById(id);
+        // 管理员 || 队长才可以修改
+        authManager.adminOrMe(teamFromDb.getLeaderId(), request);
+
+        // 判断是否需要更新
+        if (!needUpdate(teamFromDb, teamUpdateRequest)) {
+            // 不需要更新
+            return Boolean.TRUE;
+        }
+        // 需要更新
+        String teamName = teamUpdateRequest.getTeamName();
+        String description = teamUpdateRequest.getDescription();
+        Integer maxNum = teamUpdateRequest.getMaxNum();
+        Integer status = teamUpdateRequest.getStatus();
+        String teamPassword = teamUpdateRequest.getTeamPassword();
+        String teamAvatar = teamUpdateRequest.getTeamAvatar();
+        LambdaUpdateWrapper<Team> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Team::getId, id)
+                .set(Team::getTeamName, teamName)
+                .set(StringUtils.isNotBlank(description), Team::getDescription, description)
+                .set(Team::getMaxNum, maxNum)
+                .set(Team::getStatus, status)
+                .set(StringUtils.isNotBlank(teamPassword), Team::getTeamPassword, teamPassword)
+                .set(StringUtils.isNotBlank(teamAvatar), Team::getTeamAvatar, teamAvatar);
+        return this.update(updateWrapper);
     }
 
     /**
@@ -192,6 +215,62 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Integer hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
         teamUserVO.setJoinNum(hasJoinTeamNum);
         return teamUserVO;
+    }
+
+    /**
+     * 判断更新请求是否需要更新
+     *
+     * @param teamFromDb        数据库中的team信息
+     * @param teamUpdateRequest 更新队伍请求封装信息
+     * @return true - 需要更新
+     */
+    private boolean needUpdate(Team teamFromDb, TeamUpdateRequest teamUpdateRequest) {
+        String teamName = teamUpdateRequest.getTeamName();
+        String description = teamUpdateRequest.getDescription();
+        Integer maxNum = teamUpdateRequest.getMaxNum();
+        Integer status = teamUpdateRequest.getStatus();
+        String teamPassword = teamUpdateRequest.getTeamPassword();
+        // 校验参数是否合法
+        checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
+
+        String teamAvatar = teamUpdateRequest.getTeamAvatar();
+
+        boolean eTeamName = teamFromDb.getTeamName().equals(teamName);
+        boolean eDesc = StringUtils.isNotBlank(description) && teamFromDb.getDescription().equals(description);
+        boolean eMaxNum = teamFromDb.getMaxNum().equals(maxNum);
+        boolean eStatus = teamFromDb.getStatus().equals(status);
+        boolean ePwd = ENCRYPTED.equals(teamFromDb.getStatus()) && teamFromDb.getTeamPassword().equals(teamPassword);
+        boolean eTeamAvatar = teamFromDb.getTeamAvatar().equals(teamAvatar);
+        return !(eTeamName && eDesc && eStatus && eMaxNum && ePwd && eTeamAvatar);
+    }
+
+    /**
+     * 校验队伍参数是否合法（新增，修改）
+     *
+     * @param teamName     队伍名称
+     * @param description  队伍描述
+     * @param maxNum       队伍最大人数
+     * @param status       队伍状态
+     * @param teamPassword 队伍密码
+     */
+    private void checkTeamInfoValid(
+            String teamName, String description, Integer maxNum, Integer status, String teamPassword
+    ) {
+        // 队伍标题不能为空 && 队伍标题长度 <= 20
+        ThrowUtils.throwIf(StringUtils.isBlank(teamName), StatusCode.PARAMS_ERROR, "队伍名称不能为空！");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(teamName) && teamName.length() > TEAM_NAME_MAX_LEN,
+                StatusCode.PARAMS_ERROR, "队伍名称长度不能超过20");
+        // 队伍描述长度<= 512
+        ThrowUtils.throwIf(StringUtils.isNotBlank(description) && description.length() > TEAM_DESC_MAX_LEN,
+                StatusCode.PARAMS_ERROR, "队伍描述过长！");
+        // 队伍最大人数 1 <  maxNum  <= 20
+        ThrowUtils.throwIf(maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END,
+                StatusCode.PARAMS_ERROR, "队伍最大人数在2到20之间！");
+        // status不能为空，默认为公开（0），如果status为加密状态（2），则一定要有密码，且密码长度 <= 32
+        ThrowUtils.throwIf(ENCRYPTED.equals(status) && StringUtils.isBlank(teamPassword),
+                StatusCode.PARAMS_ERROR, "加密队伍密码不能为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(teamPassword) && teamPassword.length() > TEAM_PWD_MAX_LEN,
+                StatusCode.PARAMS_ERROR, "密码长度不能大于32");
     }
 }
 

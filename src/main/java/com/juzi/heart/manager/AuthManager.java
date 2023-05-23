@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 
+import java.util.Objects;
+
 import static com.juzi.heart.constant.UserConstants.ADMIN;
 
 /**
@@ -22,7 +24,7 @@ public class AuthManager {
     public void adminOrMe(Long checkedUserId, HttpServletRequest request) {
         UserVO loginUser = userManager.getLoginUser(request);
         boolean isAdmin = ADMIN.equals(loginUser.getUserRole());
-        boolean isMe = checkedUserId.equals(loginUser.getId());
+        boolean isMe = !Objects.isNull(checkedUserId) && checkedUserId.equals(loginUser.getId());
         // 管理员 || 自己
         ThrowUtils.throwIf(!(isAdmin || isMe), StatusCode.NO_AUTH_ERROR, "无相应权限!");
     }
