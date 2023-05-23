@@ -17,22 +17,32 @@
         id,userId,teamId,
         joinTime,createTime,updateTime
     </sql>
+
     <delete id="userQuitTeam">
         delete
         from hi_heart.user_team
         where teamId = #{teamId}
           and userId = #{userId};
     </delete>
+
+    <delete id="deleteTeam">
+        delete
+        from hi_heart.user_team
+        where teamId = #{teamId};
+    </delete>
+
     <select id="userHasJoinTeam" resultType="java.lang.Boolean">
         select count(1)
         from hi_heart.user_team
         where teamId = #{teamId} and userId = #{userId};
     </select>
+
     <select id="hasJoinTeamNum" resultType="java.lang.Integer">
         select count(1) as hasJoinTeamNum
         from hi_heart.user_team
         where teamId = #{teamId};
     </select>
+
     <select id="userHasJoinTeamNum" resultType="java.lang.Integer">
         select count(1) as userHasJoinTeamNum
         from hi_heart.user_team

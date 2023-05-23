@@ -10,7 +10,7 @@ import java.io.Serializable;
  * @author codejuzi
  */
 @Data
-public class DeleteRequest implements Serializable {
+public class SingleIdRequest implements Serializable {
 
     private static final long serialVersionUID = 6566322826250035787L;
 

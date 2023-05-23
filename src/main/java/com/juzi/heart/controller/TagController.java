@@ -1,7 +1,7 @@
 package com.juzi.heart.controller;
 
 import com.juzi.heart.common.BaseResponse;
-import com.juzi.heart.common.DeleteRequest;
+import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
@@ -66,9 +66,9 @@ public class TagController {
     }
 
     @DeleteMapping("/delete")
-    public BaseResponse<Boolean> deleteTag(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
-        ThrowUtils.throwIf(Objects.isNull(deleteRequest), StatusCode.PARAMS_ERROR, "删除标签参数不能为空！");
-        Boolean deleteRes = tagService.deleteTag(deleteRequest, request);
+    public BaseResponse<Boolean> deleteTag(@RequestBody SingleIdRequest singleIdRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest), StatusCode.PARAMS_ERROR, "删除标签参数不能为空！");
+        Boolean deleteRes = tagService.deleteTag(singleIdRequest, request);
         return ResultUtils.success(deleteRes);
     }
 }

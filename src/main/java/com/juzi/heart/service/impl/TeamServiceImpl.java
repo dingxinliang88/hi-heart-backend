@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.juzi.heart.common.PageRequest;
+import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
@@ -123,15 +125,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         // 获取当前用户，允许为空
         UserVO loginUser = userManager.getLoginUserPermitNull(request);
         List<Team> teamList = teamPage.getRecords();
-        List<TeamUserVO> teamUserVOList = teamList.stream().map(team -> this.getTeamUserVO(team, loginUser))
-                .collect(Collectors.toList());
-        // 封装返回结果
-        Page<TeamUserVO> teamUserVOPage = new Page<>(
-                teamPage.getCurrent(), teamPage.getSize(), teamPage.getTotal()
-        );
-        teamUserVOPage.setRecords(teamUserVOList);
-        return teamUserVOPage;
+        return getTeamUserVOPage(teamPage, loginUser, teamList);
     }
+
 
     @Override
     public Boolean updateTeam(TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
@@ -228,12 +224,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 
         // 根据队伍人数分情况
         int hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
-        if(hasJoinTeamNum == 1) {
+        if (hasJoinTeamNum == 1) {
             // 队伍只剩下一人，直接解散
             this.removeById(teamId);
         } else {
             // 如果是队长退出队伍，将队伍转让给第二早加入队伍的用户
-            if(team.getLeaderId().equals(userId)) {
+            if (team.getLeaderId().equals(userId)) {
                 LambdaQueryWrapper<UserTeam> queryWrapper = new LambdaQueryWrapper<>();
                 queryWrapper.eq(UserTeam::getTeamId, teamId)
                         .last("order by joinTime asc limit 2");
@@ -250,6 +246,105 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         // 移除用户队伍关系
         return userTeamMapper.userQuitTeam(teamId, userId);
     }
+
+    @Transactional(rollbackFor = {BusinessException.class})
+    @Override
+    public Boolean deleteTeam(SingleIdRequest singleIdRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest), StatusCode.PARAMS_ERROR, "删除队伍请求信息不能为空！");
+        Long teamId = singleIdRequest.getId();
+        Team team = this.getById(teamId);
+        ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "要删除的队伍不存在");
+        // 管理员 || 队长
+        authManager.adminOrMe(team.getLeaderId(), request);
+
+        // 删除队伍消息
+        this.removeById(teamId);
+
+        // 删除队伍用户关系
+        return userTeamMapper.deleteTeam(teamId);
+    }
+
+    @Override
+    public Boolean transferTeam(TeamTransferRequest teamTransferRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamTransferRequest), StatusCode.PARAMS_ERROR, "转让队伍请求信息不能为空！");
+
+        Long teamId = teamTransferRequest.getTeamId();
+        Team team = this.getById(teamId);
+        UserVO loginUser = userManager.getLoginUser(request);
+        Long userId = loginUser.getId();
+        // 校验是否是队长
+        ThrowUtils.throwIf(!team.getLeaderId().equals(userId), StatusCode.NO_AUTH_ERROR, "您不是该队队长，不能转让该队伍");
+
+        // 判断要转让的用户是否在队伍中
+        Long nextLeaderId = teamTransferRequest.getNextLeaderId();
+        Boolean nextLeaderHasJoinTeam = userTeamMapper.userHasJoinTeam(teamId, nextLeaderId);
+        ThrowUtils.throwIf(Boolean.FALSE.equals(nextLeaderHasJoinTeam), StatusCode.NOT_FOUND_ERROR, "要转让的对象未加入队伍");
+
+        // 转让
+        Team transferTeam = new Team();
+        transferTeam.setId(teamId);
+        transferTeam.setLeaderId(nextLeaderId);
+
+        return this.updateById(transferTeam);
+    }
+
+    @Override
+    public List<Team> listTeam(Boolean selfLead, Boolean selfCreate, HttpServletRequest request) {
+        UserVO loginUser = userManager.getLoginUser(request);
+        return teamMapper.listJoinTeam(loginUser.getId(), selfLead, selfCreate);
+    }
+
+    @Override
+    public Page<TeamUserVO> listMyJoinTeam(PageRequest pageRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我加入的队伍分页参数为空");
+
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+
+        // 加入
+        List<Team> teamList = this.listTeam(Boolean.FALSE, Boolean.FALSE, request);
+
+        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
+        UserVO loginUser = userManager.getLoginUser(request);
+        return getTeamUserVOPage(teamPage, loginUser, teamList);
+    }
+
+    @Override
+    public Page<TeamUserVO> listMyLeadTeam(PageRequest pageRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我是队长的队伍分页参数为空");
+
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+
+        // 队长
+        List<Team> teamList = this.listTeam(Boolean.TRUE, Boolean.FALSE, request);
+
+        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
+        UserVO loginUser = userManager.getLoginUser(request);
+        return getTeamUserVOPage(teamPage, loginUser, teamList);
+    }
+
+    @Override
+    public Page<TeamUserVO> listMyCreateTeam(PageRequest pageRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我创建的的队伍分页参数为空");
+
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+
+        // 创建
+        List<Team> teamList = this.listTeam(Boolean.TRUE, Boolean.TRUE, request);
+
+        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
+        UserVO loginUser = userManager.getLoginUser(request);
+        return getTeamUserVOPage(teamPage, loginUser, teamList);
+    }
+
 
     /**
      * 得到查询队伍的查询wrapper
@@ -356,6 +451,27 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         ThrowUtils.throwIf(StringUtils.isNotBlank(teamPassword) && teamPassword.length() > TEAM_PWD_MAX_LEN,
                 StatusCode.PARAMS_ERROR, "密码长度不能大于32");
     }
+
+
+    /**
+     * 封装 team user vo page
+     *
+     * @param teamPage  team page
+     * @param loginUser login user
+     * @param teamList  team list
+     * @return team user vo page info
+     */
+    private Page<TeamUserVO> getTeamUserVOPage(Page<Team> teamPage, UserVO loginUser, List<Team> teamList) {
+        List<TeamUserVO> teamUserVOList = teamList.stream().map(team -> this.getTeamUserVO(team, loginUser))
+                .collect(Collectors.toList());
+        // 封装返回结果
+        Page<TeamUserVO> teamUserVOPage = new Page<>(
+                teamPage.getCurrent(), teamPage.getSize(), teamPage.getTotal()
+        );
+        teamUserVOPage.setRecords(teamUserVOList);
+        return teamUserVOPage;
+    }
+
 }
 
 

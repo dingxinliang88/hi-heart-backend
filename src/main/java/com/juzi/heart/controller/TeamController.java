@@ -2,6 +2,8 @@ package com.juzi.heart.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.juzi.heart.common.BaseResponse;
+import com.juzi.heart.common.PageRequest;
+import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
@@ -60,4 +62,37 @@ public class TeamController {
         Boolean quitRes = teamService.quitTeam(teamQuitRequest, request);
         return ResultUtils.success(quitRes);
     }
+
+    @DeleteMapping("/delete")
+    public BaseResponse<Boolean> deleteTeam(@RequestBody SingleIdRequest singleIdRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest), StatusCode.PARAMS_ERROR, "解散队伍请求信息不能为空！");
+        Boolean deleteRes = teamService.deleteTeam(singleIdRequest, request);
+        return ResultUtils.success(deleteRes);
+    }
+
+    @PutMapping("/transfer")
+    public BaseResponse<Boolean> transferTeam(@RequestBody TeamTransferRequest teamTransferRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamTransferRequest), StatusCode.PARAMS_ERROR, "转让队伍请求信息不能为空！");
+        Boolean transferRes = teamService.transferTeam(teamTransferRequest, request);
+        return ResultUtils.success(transferRes);
+    }
+
+    @GetMapping("/my/join")
+    public BaseResponse<Page<TeamUserVO>> listJoinTeam(PageRequest pageRequest, HttpServletRequest request) {
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyJoinTeam(pageRequest, request);
+        return ResultUtils.success(teamUserVOPage);
+    }
+
+    @GetMapping("/my/lead")
+    public BaseResponse<Page<TeamUserVO>> listLeadTeam(PageRequest pageRequest, HttpServletRequest request) {
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyLeadTeam(pageRequest, request);
+        return ResultUtils.success(teamUserVOPage);
+    }
+
+    @GetMapping("/my/create")
+    public BaseResponse<Page<TeamUserVO>> listCreateTeam(PageRequest pageRequest, HttpServletRequest request) {
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyCreateTeam(pageRequest, request);
+        return ResultUtils.success(teamUserVOPage);
+    }
+
 }

@@ -1,6 +1,6 @@
 package com.juzi.heart.service;
 
-import com.juzi.heart.common.DeleteRequest;
+import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
 import com.juzi.heart.model.entity.Tag;
@@ -63,11 +63,11 @@ public interface TagService extends IService<Tag> {
     /**
      * 根据id删除tag
      *
-     * @param deleteRequest 删除请求封装信息
+     * @param singleIdRequest 删除请求封装信息
      * @param request       http request
      * @return true - 删除成功
      */
-    Boolean deleteTag(DeleteRequest deleteRequest, HttpServletRequest request);
+    Boolean deleteTag(SingleIdRequest singleIdRequest, HttpServletRequest request);
 
     /**
      * 获取所有父标签id

@@ -3,7 +3,7 @@ package com.juzi.heart.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.juzi.heart.common.DeleteRequest;
+import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
@@ -185,10 +185,10 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
 
     @Override
     @Transactional(rollbackFor = {BusinessException.class})
-    public Boolean deleteTag(DeleteRequest deleteRequest, HttpServletRequest request) {
+    public Boolean deleteTag(SingleIdRequest singleIdRequest, HttpServletRequest request) {
         // 校验
-        ThrowUtils.throwIf(Objects.isNull(deleteRequest), StatusCode.PARAMS_ERROR, "删除标签参数不能为空");
-        Long id = deleteRequest.getId();
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest), StatusCode.PARAMS_ERROR, "删除标签参数不能为空");
+        Long id = singleIdRequest.getId();
         ThrowUtils.throwIf(id <= 0L, StatusCode.PARAMS_ERROR, "删除标签参数不合法！");
         Tag deleteTag = this.getById(id);
         ThrowUtils.throwIf(Objects.isNull(deleteTag), StatusCode.NOT_FOUND_ERROR, "要删除的标签不存在！");

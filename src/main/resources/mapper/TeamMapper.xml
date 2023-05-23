@@ -31,4 +31,23 @@
         where isDelete = 0
           and createUserId = #{userId};
     </select>
+    <select id="listJoinTeam" resultType="com.juzi.heart.model.entity.Team">
+        select *
+        from hi_heart.team
+        where isDelete = 0
+        and
+        <choose>
+            <when test="selfCreate">
+                createUserId = #{userId}
+            </when>
+            <otherwise>
+                id in (
+                select teamId from hi_heart.user_team where userId = #{userId}
+                )
+                <if test="selfLead">
+                    and leaderId = #{userId}
+                </if>;
+            </otherwise>
+        </choose>
+    </select>
 </mapper>

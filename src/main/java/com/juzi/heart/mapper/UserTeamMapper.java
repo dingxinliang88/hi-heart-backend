@@ -46,6 +46,14 @@ public interface UserTeamMapper extends BaseMapper<UserTeam> {
      * @return true - 删除成功
      */
     Boolean userQuitTeam(Long teamId, Long userId);
+
+    /**
+     * 删除队伍（用户队伍关系）
+     *
+     * @param teamId team id
+     * @return true - 删除成功
+     */
+    Boolean deleteTeam(Long teamId);
 }
 
 
