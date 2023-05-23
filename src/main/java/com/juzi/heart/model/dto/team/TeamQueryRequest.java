@@ -16,14 +16,9 @@ import java.io.Serializable;
 public class TeamQueryRequest extends PageRequest implements Serializable {
 
     /**
-     * 队伍名称、非空
+     * 搜索关键词 => 队伍名称、队伍简介
      */
-    private String teamName;
-
-    /**
-     * 队伍描述，可以为空
-     */
-    private String description;
+    private String searchText;
 
     /**
      * 队伍最大人数，非空，默认为5

@@ -5,6 +5,7 @@ import com.juzi.heart.model.dto.team.TeamAddRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
 import com.juzi.heart.model.entity.Team;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.juzi.heart.model.vo.Team.TeamUserVO;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -28,8 +29,9 @@ public interface TeamService extends IService<Team> {
      * 查询队伍
      *
      * @param teamQueryRequest 查询队伍封装信息
+     * @param request          http request
      * @return 队伍分页信息
      */
-    Page<Team> queryTeam(TeamQueryRequest teamQueryRequest);
+    Page<TeamUserVO> queryTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
 
 }

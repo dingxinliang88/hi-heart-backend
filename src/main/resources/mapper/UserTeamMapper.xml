@@ -19,4 +19,16 @@
         joinTime,createTime,updateTime,
         isDelete
     </sql>
+    <select id="userHasJoinTeam" resultType="java.lang.Boolean">
+        select count(1)
+        from hi_heart.user_team
+        where isDelete = 0
+          and (teamId = #{teamId} and userId = #{userId});
+    </select>
+    <select id="hasJoinTeamNum" resultType="java.lang.Integer">
+        select count(1) as hasJoinTeamNum
+        from hi_heart.user_team
+        where isDelete = 0
+          and teamId = #{teamId};
+    </select>
 </mapper>

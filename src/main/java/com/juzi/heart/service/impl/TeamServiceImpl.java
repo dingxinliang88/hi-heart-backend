@@ -9,12 +9,16 @@ import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TeamMapper;
+import com.juzi.heart.mapper.UserTeamMapper;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
 import com.juzi.heart.model.entity.Team;
+import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.entity.UserTeam;
+import com.juzi.heart.model.vo.Team.TeamUserVO;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TeamService;
+import com.juzi.heart.service.UserService;
 import com.juzi.heart.service.UserTeamService;
 import com.juzi.heart.utils.ThrowUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -23,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
@@ -44,10 +50,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     private UserTeamService userTeamService;
 
     @Resource
+    private UserService userService;
+
+    @Resource
     private UserManager userManager;
 
     @Resource
     private TeamMapper teamMapper;
+
+    @Resource
+    private UserTeamMapper userTeamMapper;
 
     @Transactional(rollbackFor = {BusinessException.class})
     @Override
@@ -109,28 +121,77 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public Page<Team> queryTeam(TeamQueryRequest teamQueryRequest) {
+    public Page<TeamUserVO> queryTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(teamQueryRequest), StatusCode.PARAMS_ERROR, "查询参数不能为空！");
-        String teamName = teamQueryRequest.getTeamName();
-        String description = teamQueryRequest.getDescription();
+        Integer pageNum = teamQueryRequest.getPageNum();
+        Integer pageSize = teamQueryRequest.getPageSize();
+        LambdaQueryWrapper<Team> queryWrapper = this.getQueryWrapper(teamQueryRequest);
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+        Page<Team> teamPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
+
+        // 获取当前用户，允许为空
+        UserVO loginUser = userManager.getLoginUserPermitNull(request);
+        List<Team> teamList = teamPage.getRecords();
+        List<TeamUserVO> teamUserVOList = teamList.stream().map(team -> this.getTeamUserVO(team, loginUser))
+                .collect(Collectors.toList());
+        // 封装返回结果
+        Page<TeamUserVO> teamUserVOPage = new Page<>(
+                teamPage.getCurrent(), teamPage.getSize(), teamPage.getTotal()
+        );
+        teamUserVOPage.setRecords(teamUserVOList);
+        return teamUserVOPage;
+    }
+
+    /**
+     * 得到查询队伍的查询wrapper
+     *
+     * @param teamQueryRequest 队伍查询请求信息
+     * @return query wrapper
+     */
+    private LambdaQueryWrapper<Team> getQueryWrapper(TeamQueryRequest teamQueryRequest) {
+        String searchText = teamQueryRequest.getSearchText();
         Integer maxNum = teamQueryRequest.getMaxNum();
         Long createUserId = teamQueryRequest.getCreateUserId();
         Long leaderId = teamQueryRequest.getLeaderId();
         Integer status = teamQueryRequest.getStatus();
-        Integer pageNum = teamQueryRequest.getPageNum();
-        Integer pageSize = teamQueryRequest.getPageSize();
 
         // 封装查询条件
         LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.like(StringUtils.isNotBlank(teamName), Team::getTeamName, teamName).or()
-                .like(StringUtils.isNotBlank(description), Team::getDescription, description).or()
+        queryWrapper.like(StringUtils.isNotBlank(searchText), Team::getTeamName, searchText).or()
+                .like(StringUtils.isNotBlank(searchText), Team::getDescription, searchText).or()
                 .eq(!Objects.isNull(maxNum) && (maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END), Team::getMaxNum, maxNum).or()
                 .eq(!Objects.isNull(createUserId) && createUserId > 0, Team::getCreateUserId, createUserId).or()
                 .eq(!Objects.isNull(leaderId) && leaderId > 0, Team::getLeaderId, leaderId).or()
                 .eq(!Objects.isNull(status) && TEAM_STATUS_LIST.contains(status) && !ENCRYPTED.equals(status), Team::getStatus, status);
-        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
-        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
-        return this.page(new Page<>(pageNum, pageSize), queryWrapper);
+        return queryWrapper;
+    }
+
+    /**
+     * 封装TeamUserVO信息
+     *
+     * @param team      team info
+     * @param loginUser login user, may be null
+     * @return team user vo
+     */
+    private TeamUserVO getTeamUserVO(Team team, UserVO loginUser) {
+        Long teamId = team.getId();
+        TeamUserVO teamUserVO = new TeamUserVO(team);
+        // 判断当前用户是否加入队伍
+        // select count(1) from user_team where isDelete = 0 and (teamId = #{team.getId()} and userId = #{loginUser.getId()});
+        if (!Objects.isNull(loginUser)) {
+            Boolean hasJoinTeam = userTeamMapper.userHasJoinTeam(teamId, loginUser.getId());
+            teamUserVO.setHasJoin(hasJoinTeam);
+        }
+        Long teamLeaderId = team.getLeaderId();
+        User leaderUser = userService.getById(teamLeaderId);
+        UserVO leader = userService.getUserVO(leaderUser);
+        teamUserVO.setLeader(leader);
+        // 获取当前队伍加入的人数
+        // select count(1) from user_team where isDelete = 0 and teamId = #{team.getId()};
+        Integer hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
+        teamUserVO.setJoinNum(hasJoinTeamNum);
+        return teamUserVO;
     }
 }
 

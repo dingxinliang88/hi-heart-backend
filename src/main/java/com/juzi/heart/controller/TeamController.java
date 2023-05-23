@@ -5,7 +5,7 @@ import com.juzi.heart.common.BaseResponse;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.team.TeamAddRequest;
 import com.juzi.heart.model.dto.team.TeamQueryRequest;
-import com.juzi.heart.model.entity.Team;
+import com.juzi.heart.model.vo.Team.TeamUserVO;
 import com.juzi.heart.service.TeamService;
 import com.juzi.heart.utils.ResultUtils;
 import com.juzi.heart.utils.ThrowUtils;
@@ -35,9 +35,9 @@ public class TeamController {
     }
 
     @GetMapping("/query")
-    public BaseResponse<Page<Team>> queryTeam(TeamQueryRequest teamQueryRequest) {
+    public BaseResponse<Page<TeamUserVO>> queryTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(teamQueryRequest), StatusCode.PARAMS_ERROR, "查询参数不能为空");
-        Page<Team> teamPage = teamService.queryTeam(teamQueryRequest);
-        return ResultUtils.success(teamPage);
+        Page<TeamUserVO> teamUserVOPage = teamService.queryTeam(teamQueryRequest, request);
+        return ResultUtils.success(teamUserVOPage);
     }
 }
