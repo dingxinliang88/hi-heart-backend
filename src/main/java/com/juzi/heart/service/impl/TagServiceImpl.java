@@ -9,6 +9,7 @@ import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.TagManager;
 import com.juzi.heart.manager.UserManager;
+
 import com.juzi.heart.mapper.TagMapper;
 import com.juzi.heart.model.dto.tag.TagAddRequest;
 import com.juzi.heart.model.dto.tag.TagEditRequest;
@@ -27,10 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.TagConstants.*;
@@ -62,6 +61,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+
     @Override
     public Long addTag(TagAddRequest tagAddRequest, HttpServletRequest request) {
         // 校验
@@ -72,12 +72,16 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         ThrowUtils.throwIf(parentId < 0, StatusCode.PARAMS_ERROR, "id不能小于0！");
         // 获取当前登录用户
         UserVO loginUser = userManager.getLoginUser(request);
-        Integer hasChildren = HAS_CHILDREN;
+        Integer hasChildren = HAS_NO_CHILDREN;
+
         if (!DEFAULT_PARENT_ID.equals(parentId)) {
             // 如果不是添加的父标签，校验所属的父标签是否存在
             Tag tag = this.getById(parentId);
             ThrowUtils.throwIf(Objects.isNull(tag), StatusCode.NOT_FOUND_ERROR, "对应的父标签不存在");
-            hasChildren = HAS_NO_CHILDREN;
+        } else {
+            // 添加的是父标签，只有管理员可以添加父标签
+            ThrowUtils.throwIf(!ADMIN.equals(loginUser.getUserRole()), StatusCode.NO_AUTH_ERROR, "你不能添加父标签！");
+            hasChildren = HAS_CHILDREN;
         }
         // 插入数据
         Tag tag = new Tag();
@@ -129,7 +133,9 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         return tagVOList;
     }
 
+
     @Override
+    @Transactional(rollbackFor = {BusinessException.class})
     public Boolean editTag(TagEditRequest tagEditRequest, HttpServletRequest request) {
         // 校验
         ThrowUtils.throwIf(Objects.isNull(tagEditRequest), StatusCode.PARAMS_ERROR, "修改标签参数不能为空");
@@ -138,13 +144,10 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         Long parentId = tagEditRequest.getParentId();
         ThrowUtils.throwIf(id <= 0L, StatusCode.PARAMS_ERROR, "修改标签参数不合法！");
         ThrowUtils.throwIf(parentId < 0L, StatusCode.PARAMS_ERROR, "修改标签参数不合法！");
-        UserVO loginUser = userManager.getLoginUser(request);
         Tag editTag = this.getById(id);
         ThrowUtils.throwIf(Objects.isNull(editTag), StatusCode.NOT_FOUND_ERROR, "要修改的标签不存在！");
-        boolean isAdmin = ADMIN.equals(loginUser.getUserRole());
-        boolean isMe = editTag.getUserId().equals(loginUser.getId());
-        // 管理员 || 自己  可以修改
-        ThrowUtils.throwIf(!(isAdmin || isMe), StatusCode.NO_AUTH_ERROR, "你无权修改此标签!");
+        // 管理员 || 自己
+        authManager.adminOrMe(editTag.getUserId(), request);
 
         LambdaUpdateWrapper<Tag> updateWrapper = new LambdaUpdateWrapper<>();
         // 修改tagName
@@ -166,9 +169,10 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
                 ThrowUtils.throwIf(!parentTagIdList.contains(parentId),
                         StatusCode.PARAMS_ERROR, "待挂载的标签不是父标签！");
                 tagManager.cacheParentTagId(parentTagIdList);
+            } else {
+                ThrowUtils.throwIf(!ObjectUtils.isEmpty(parentIdSet) && !parentIdSet.contains(parentId),
+                        StatusCode.PARAMS_ERROR, "待挂载的标签不是父标签！");
             }
-            ThrowUtils.throwIf(!ObjectUtils.isEmpty(parentIdSet) && !parentIdSet.contains(parentId),
-                    StatusCode.PARAMS_ERROR, "待挂载的标签不是父标签！");
             // 获取此父标签下的所有子标签，将其迁移到要修改的parentId对应的父标签下
             // update table tag set parentId = #{newParentId} where isDelete = 0 and parentId = #{id};
             tagMapper.migrateChildTags(parentId, id);
@@ -177,6 +181,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         }
         return this.update(updateWrapper);
     }
+
 
     @Override
     @Transactional(rollbackFor = {BusinessException.class})
@@ -200,6 +205,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         // 删除父标签
         return this.removeById(id);
     }
+
 
     @Override
     public List<Long> getParentTagIdList() {

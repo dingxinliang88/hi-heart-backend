@@ -75,4 +75,5 @@ public interface TagService extends IService<Tag> {
      * @return parent tag id list
      */
     List<Long> getParentTagIdList();
+
 }
