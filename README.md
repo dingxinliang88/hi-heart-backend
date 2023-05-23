@@ -127,7 +127,6 @@ CREATE TABLE `team`
 |  joinTime  | datetime |    加入时间，非空，默认为当前时间    |
 | createTime | datetime |     创建时间，默认为当前时间      |
 | updateTime | datetime |     修改时间，默认为当前时间      |
-|  isDelete  | tinyint  | 逻辑删除标志，0 - 未删除、1 - 删除 |
 
 ```sql
 CREATE TABLE `user_team`
@@ -138,7 +137,6 @@ CREATE TABLE `user_team`
     `joinTime`   datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间，非空，默认为当前时间',
     `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，默认为当前时间',
     `updateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间，默认为当前时间',
-    `isDelete`   tinyint  NOT NULL DEFAULT 0 COMMENT '逻辑删除标志，0 - 未删除、1 - 删除',
     PRIMARY KEY (`id`),
     KEY `idx_userId` (`userId`) COMMENT '为userId字段添加索引',
     KEY `idx_teamId` (`teamId`) COMMENT '为teamId字段添加索引'

@@ -12,10 +12,7 @@ import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TeamMapper;
 import com.juzi.heart.mapper.UserTeamMapper;
-import com.juzi.heart.model.dto.team.TeamAddRequest;
-import com.juzi.heart.model.dto.team.TeamJoinRequest;
-import com.juzi.heart.model.dto.team.TeamQueryRequest;
-import com.juzi.heart.model.dto.team.TeamUpdateRequest;
+import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.entity.UserTeam;
@@ -170,6 +167,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     @Override
     public Boolean joinTeam(TeamJoinRequest teamJoinRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(teamJoinRequest), StatusCode.PARAMS_ERROR, "加入队伍请求信息不能为空！");
+
         UserVO loginUser = userManager.getLoginUser(request);
         Long userId = loginUser.getId();
         Long teamId = teamJoinRequest.getTeamId();
@@ -210,6 +208,47 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         userTeam.setTeamId(teamId);
         userTeam.setJoinTime(new Date());
         return userTeamService.save(userTeam);
+    }
+
+    @Transactional(rollbackFor = {BusinessException.class})
+    @Override
+    public Boolean quitTeam(TeamQuitRequest teamQuitRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamQuitRequest), StatusCode.PARAMS_ERROR, "退出队伍请求信息不能为空！");
+
+        // 判断队伍是否存在
+        Long teamId = teamQuitRequest.getTeamId();
+        Team team = this.getById(teamId);
+        ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "所要退出的队伍不存在");
+
+        // 判断当前用户是否加入该队伍
+        UserVO loginUser = userManager.getLoginUser(request);
+        Long userId = loginUser.getId();
+        Boolean userHasJoinTeam = userTeamMapper.userHasJoinTeam(teamId, userId);
+        ThrowUtils.throwIf(Boolean.FALSE.equals(userHasJoinTeam), StatusCode.OPERATION_ERROR, "您尚未加入该队伍");
+
+        // 根据队伍人数分情况
+        int hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
+        if(hasJoinTeamNum == 1) {
+            // 队伍只剩下一人，直接解散
+            this.removeById(teamId);
+        } else {
+            // 如果是队长退出队伍，将队伍转让给第二早加入队伍的用户
+            if(team.getLeaderId().equals(userId)) {
+                LambdaQueryWrapper<UserTeam> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(UserTeam::getTeamId, teamId)
+                        .last("order by joinTime asc limit 2");
+                List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+                ThrowUtils.throwIf(userTeamList.size() < 2, StatusCode.SYSTEM_ERROR, "队伍信息获取失败");
+                Long nextLeaderId = userTeamList.get(1).getUserId();
+                Team updateTeam = new Team();
+                updateTeam.setId(teamId);
+                updateTeam.setLeaderId(nextLeaderId);
+                ThrowUtils.throwIf(!this.updateById(updateTeam), StatusCode.SYSTEM_ERROR, "队伍信息更新失败");
+            }
+        }
+
+        // 移除用户队伍关系
+        return userTeamMapper.userQuitTeam(teamId, userId);
     }
 
     /**

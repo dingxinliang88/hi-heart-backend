@@ -11,30 +11,31 @@
             <result property="joinTime" column="joinTime" jdbcType="TIMESTAMP"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
-            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id,userId,teamId,
-        joinTime,createTime,updateTime,
-        isDelete
+        joinTime,createTime,updateTime
     </sql>
+    <delete id="userQuitTeam">
+        delete
+        from hi_heart.user_team
+        where teamId = #{teamId}
+          and userId = #{userId};
+    </delete>
     <select id="userHasJoinTeam" resultType="java.lang.Boolean">
         select count(1)
         from hi_heart.user_team
-        where isDelete = 0
-          and (teamId = #{teamId} and userId = #{userId});
+        where teamId = #{teamId} and userId = #{userId};
     </select>
     <select id="hasJoinTeamNum" resultType="java.lang.Integer">
         select count(1) as hasJoinTeamNum
         from hi_heart.user_team
-        where isDelete = 0
-          and teamId = #{teamId};
+        where teamId = #{teamId};
     </select>
     <select id="userHasJoinTeamNum" resultType="java.lang.Integer">
         select count(1) as userHasJoinTeamNum
         from hi_heart.user_team
-        where isDelete = 0
-          and userId = #{userId};
+        where userId = #{userId};
     </select>
 </mapper>

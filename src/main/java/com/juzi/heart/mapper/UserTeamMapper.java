@@ -37,6 +37,15 @@ public interface UserTeamMapper extends BaseMapper<UserTeam> {
      * @return 用户加入的队伍数量
      */
     Integer userHasJoinTeamNum(Long userId);
+
+    /**
+     * 用户退出队伍，删除用户队伍关系
+     *
+     * @param teamId team id
+     * @param userId user id
+     * @return true - 删除成功
+     */
+    Boolean userQuitTeam(Long teamId, Long userId);
 }
 
 

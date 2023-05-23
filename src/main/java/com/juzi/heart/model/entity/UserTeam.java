@@ -46,12 +46,6 @@ public class UserTeam implements Serializable {
      */
     private Date updateTime;
 
-    /**
-     * 逻辑删除标志，0 - 未删除、1 - 删除
-     */
-    @TableLogic
-    private Integer isDelete;
-
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

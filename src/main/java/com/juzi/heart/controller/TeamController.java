@@ -3,10 +3,7 @@ package com.juzi.heart.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.juzi.heart.common.BaseResponse;
 import com.juzi.heart.common.StatusCode;
-import com.juzi.heart.model.dto.team.TeamAddRequest;
-import com.juzi.heart.model.dto.team.TeamJoinRequest;
-import com.juzi.heart.model.dto.team.TeamQueryRequest;
-import com.juzi.heart.model.dto.team.TeamUpdateRequest;
+import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
 import com.juzi.heart.service.TeamService;
 import com.juzi.heart.utils.ResultUtils;
@@ -55,5 +52,12 @@ public class TeamController {
         ThrowUtils.throwIf(Objects.isNull(teamJoinRequest), StatusCode.PARAMS_ERROR, "加入队伍请求信息不能为空！");
         Boolean joinRes = teamService.joinTeam(teamJoinRequest, request);
         return ResultUtils.success(joinRes);
+    }
+
+    @PostMapping("/quit")
+    public BaseResponse<Boolean> quitTeam(@RequestBody TeamQuitRequest teamQuitRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(teamQuitRequest), StatusCode.PARAMS_ERROR, "退出队伍请求信息不能为空！");
+        Boolean quitRes = teamService.quitTeam(teamQuitRequest, request);
+        return ResultUtils.success(quitRes);
     }
 }
