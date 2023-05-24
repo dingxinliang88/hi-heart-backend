@@ -23,6 +23,8 @@ import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TeamService;
 import com.juzi.heart.service.UserService;
 import com.juzi.heart.service.UserTeamService;
+import com.juzi.heart.service.strategy.TeamListStrategy;
+import com.juzi.heart.service.strategy.TeamListStrategyRegistry;
 import com.juzi.heart.utils.ThrowUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,9 @@ import static com.juzi.heart.model.enums.TeamStatusEnums.TEAM_STATUS_LIST;
 @Service
 public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         implements TeamService {
+
+    @Resource
+    private TeamListStrategyRegistry teamListStrategyRegistry;
 
     @Resource
     private UserTeamService userTeamService;
@@ -127,7 +132,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         List<Team> teamList = teamPage.getRecords();
         return getTeamUserVOPage(teamPage, loginUser, teamList);
     }
-
 
     @Override
     public Boolean updateTeam(TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
@@ -289,13 +293,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public List<Team> listTeam(Boolean selfLead, Boolean selfCreate, HttpServletRequest request) {
-        UserVO loginUser = userManager.getLoginUser(request);
-        return teamMapper.listJoinTeam(loginUser.getId(), selfLead, selfCreate);
-    }
-
-    @Override
-    public Page<TeamUserVO> listMyJoinTeam(PageRequest pageRequest, HttpServletRequest request) {
+    public Page<TeamUserVO> listMyTeam(Integer type, PageRequest pageRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我加入的队伍分页参数为空");
 
         Integer pageNum = pageRequest.getPageNum();
@@ -303,45 +301,13 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
         pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
 
-        // 加入
-        List<Team> teamList = this.listTeam(Boolean.FALSE, Boolean.FALSE, request);
+        UserVO loginUser = userManager.getLoginUser(request);
+        Long userId = loginUser.getId();
+
+        TeamListStrategy teamListStrategy = teamListStrategyRegistry.getTeamListStrategyByType(type);
+        List<Team> teamList = teamListStrategy.listTeam(userId);
 
         Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
-        UserVO loginUser = userManager.getLoginUser(request);
-        return getTeamUserVOPage(teamPage, loginUser, teamList);
-    }
-
-    @Override
-    public Page<TeamUserVO> listMyLeadTeam(PageRequest pageRequest, HttpServletRequest request) {
-        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我是队长的队伍分页参数为空");
-
-        Integer pageNum = pageRequest.getPageNum();
-        Integer pageSize = pageRequest.getPageSize();
-        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
-        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
-
-        // 队长
-        List<Team> teamList = this.listTeam(Boolean.TRUE, Boolean.FALSE, request);
-
-        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
-        UserVO loginUser = userManager.getLoginUser(request);
-        return getTeamUserVOPage(teamPage, loginUser, teamList);
-    }
-
-    @Override
-    public Page<TeamUserVO> listMyCreateTeam(PageRequest pageRequest, HttpServletRequest request) {
-        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我创建的的队伍分页参数为空");
-
-        Integer pageNum = pageRequest.getPageNum();
-        Integer pageSize = pageRequest.getPageSize();
-        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
-        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
-
-        // 创建
-        List<Team> teamList = this.listTeam(Boolean.TRUE, Boolean.TRUE, request);
-
-        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
-        UserVO loginUser = userManager.getLoginUser(request);
         return getTeamUserVOPage(teamPage, loginUser, teamList);
     }
 
@@ -452,7 +418,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 StatusCode.PARAMS_ERROR, "密码长度不能大于32");
     }
 
-
     /**
      * 封装 team user vo page
      *
@@ -471,7 +436,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         teamUserVOPage.setRecords(teamUserVOList);
         return teamUserVOPage;
     }
-
 }
 
 

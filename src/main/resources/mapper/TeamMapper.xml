@@ -31,7 +31,7 @@
         where isDelete = 0
           and createUserId = #{userId};
     </select>
-    <select id="listJoinTeam" resultType="com.juzi.heart.model.entity.Team">
+    <select id="listMyTeam" resultType="com.juzi.heart.model.entity.Team">
         select *
         from hi_heart.team
         where isDelete = 0

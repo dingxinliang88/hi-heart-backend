@@ -1,15 +1,14 @@
 package com.juzi.heart.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.entity.Team;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 
 /**
  * @author codejuzi
@@ -82,39 +81,12 @@ public interface TeamService extends IService<Team> {
     Boolean transferTeam(TeamTransferRequest teamTransferRequest, HttpServletRequest request);
 
     /**
-     * 获取队伍
+     * 展示我的队伍
      *
-     * @param selfLead   是否只需要自己是队长的队伍
-     * @param selfCreate 是否只需要自己创建的
-     * @param request    http request
-     * @return team list
-     */
-    List<Team> listTeam(Boolean selfLead, Boolean selfCreate, HttpServletRequest request);
-
-    /**
-     * 获取我加入的队伍
-     *
-     * @param pageRequest 分页请求
+     * @param type        类型：0 - 加入（包含我是队长的）， 1 - 我是队长的， 2 - 我创建的队伍
+     * @param pageRequest 分页请求信息
      * @param request     http request
-     * @return team user vo page
+     * @return team user vo list
      */
-    Page<TeamUserVO> listMyJoinTeam(PageRequest pageRequest, HttpServletRequest request);
-
-    /**
-     * 获取我是队长的队伍
-     *
-     * @param pageRequest 分页请求
-     * @param request     http request
-     * @return team user vo page
-     */
-    Page<TeamUserVO> listMyLeadTeam(PageRequest pageRequest, HttpServletRequest request);
-
-    /**
-     * 获取我创建的的队伍
-     *
-     * @param pageRequest 分页请求
-     * @param request     http request
-     * @return team user vo page
-     */
-    Page<TeamUserVO> listMyCreateTeam(PageRequest pageRequest, HttpServletRequest request);
+    Page<TeamUserVO> listMyTeam(Integer type, PageRequest pageRequest, HttpServletRequest request);
 }

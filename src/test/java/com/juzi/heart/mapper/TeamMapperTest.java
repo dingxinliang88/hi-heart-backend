@@ -21,7 +21,7 @@ class TeamMapperTest {
     @Test
     void listJoinTeam() {
         Long userId = 4L;
-        List<Team> teams = teamMapper.listJoinTeam(userId, Boolean.TRUE, Boolean.TRUE);
+        List<Team> teams = teamMapper.listMyTeam(userId, Boolean.TRUE, Boolean.TRUE);
         System.out.println("teams = " + teams);
     }
 }

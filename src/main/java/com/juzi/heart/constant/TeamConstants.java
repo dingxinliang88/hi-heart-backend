@@ -5,6 +5,8 @@ package com.juzi.heart.constant;
  */
 public interface TeamConstants {
 
+    // region validation
+
     /**
      * 队伍名称最大长度
      */
@@ -40,6 +42,10 @@ public interface TeamConstants {
      */
     int USER_JOIN_TEAM_MAX_NUM = 20;
 
+    // endregion
+
+    // region default settings
+
     /**
      * 默认队伍简介（简介不填的前提下）
      */
@@ -50,14 +56,38 @@ public interface TeamConstants {
      */
     String DEFAULT_TEAM_AVATAR = "https://regengbaike.com/uploads/20230222/1bff61de34bdc7bf40c6278b2848fbcf.jpg";
 
+    // endregion
+
+    // region team status
     /**
      * 加密队伍状态
      */
     Integer CONST_ENCRYPTED = 2;
 
-
     /**
      * 私有队伍状态
      */
     Integer CONST_PRIVATE = 1;
+
+    // endregion
+
+    // region list team type
+
+    /**
+     * 我加入的
+     */
+    Integer MY_JOIN = 0;
+
+    /**
+     * 我是队长的
+     */
+    Integer MY_LEAD = 1;
+
+    /**
+     * 我创建的
+     */
+    Integer MY_CREATE = 2;
+
+    // endregion
+
 }

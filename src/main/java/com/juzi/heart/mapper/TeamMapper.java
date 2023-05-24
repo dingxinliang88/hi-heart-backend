@@ -31,7 +31,7 @@ public interface TeamMapper extends BaseMapper<Team> {
      * @param selfCreate 是否只需要自己创建的，这个若为true，selfLead失效
      * @return team list
      */
-    List<Team> listJoinTeam(Long userId, Boolean selfLead, Boolean selfCreate);
+    List<Team> listMyTeam(Long userId, Boolean selfLead, Boolean selfCreate);
 }
 
 

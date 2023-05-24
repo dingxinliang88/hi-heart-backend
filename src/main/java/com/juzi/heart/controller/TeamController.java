@@ -17,6 +17,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Objects;
 
+import static com.juzi.heart.constant.TeamConstants.*;
+
 /**
  * @author codejuzi
  */
@@ -79,19 +81,19 @@ public class TeamController {
 
     @GetMapping("/my/join")
     public BaseResponse<Page<TeamUserVO>> listJoinTeam(PageRequest pageRequest, HttpServletRequest request) {
-        Page<TeamUserVO> teamUserVOPage = teamService.listMyJoinTeam(pageRequest, request);
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyTeam(MY_JOIN, pageRequest, request);
         return ResultUtils.success(teamUserVOPage);
     }
 
     @GetMapping("/my/lead")
     public BaseResponse<Page<TeamUserVO>> listLeadTeam(PageRequest pageRequest, HttpServletRequest request) {
-        Page<TeamUserVO> teamUserVOPage = teamService.listMyLeadTeam(pageRequest, request);
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyTeam(MY_LEAD, pageRequest, request);
         return ResultUtils.success(teamUserVOPage);
     }
 
     @GetMapping("/my/create")
     public BaseResponse<Page<TeamUserVO>> listCreateTeam(PageRequest pageRequest, HttpServletRequest request) {
-        Page<TeamUserVO> teamUserVOPage = teamService.listMyCreateTeam(pageRequest, request);
+        Page<TeamUserVO> teamUserVOPage = teamService.listMyTeam(MY_CREATE, pageRequest, request);
         return ResultUtils.success(teamUserVOPage);
     }
 
