@@ -1,5 +1,6 @@
 package com.juzi.heart.service.impl;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -13,6 +14,7 @@ import com.juzi.heart.exception.BusinessException;
 import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.UserManager;
 import com.juzi.heart.mapper.TeamMapper;
+import com.juzi.heart.mapper.UserMapper;
 import com.juzi.heart.mapper.UserTeamMapper;
 import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.entity.Team;
@@ -29,6 +31,7 @@ import com.juzi.heart.utils.ThrowUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -68,6 +71,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 
     @Resource
     private TeamMapper teamMapper;
+
+    @Resource
+    private UserMapper userMapper;
 
     @Resource
     private UserTeamMapper userTeamMapper;
@@ -293,6 +299,21 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
+    public Page<TeamUserVO> listTeam(PageRequest pageRequest, HttpServletRequest request) {
+        LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Team::getStatus, CONST_PUBLIC).or()
+                .eq(Team::getStatus, CONST_ENCRYPTED);
+        List<Team> teamList = this.list(queryWrapper);
+
+        Integer pageNum = pageRequest.getPageNum();
+        Integer pageSize = pageRequest.getPageSize();
+        pageSize = Objects.isNull(pageSize) || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        pageNum = Objects.isNull(pageNum) || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+        Page<Team> teamPage = new Page<>(pageNum, pageSize, teamList.size());
+        return getTeamUserVOPage(teamPage, userManager.getLoginUserPermitNull(request), teamList);
+    }
+
+    @Override
     public Page<TeamUserVO> listMyTeam(Integer type, PageRequest pageRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "获取我加入的队伍分页参数为空");
 
@@ -320,19 +341,20 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
      */
     private LambdaQueryWrapper<Team> getQueryWrapper(TeamQueryRequest teamQueryRequest) {
         String searchText = teamQueryRequest.getSearchText();
-        Integer maxNum = teamQueryRequest.getMaxNum();
-        Long createUserId = teamQueryRequest.getCreateUserId();
-        Long leaderId = teamQueryRequest.getLeaderId();
         Integer status = teamQueryRequest.getStatus();
 
+        List<Long> userIdList = new ArrayList<>();
+        if (StringUtils.isNotBlank(searchText)) {
+            userIdList = userMapper.listLeaderOrCreatorId(searchText);
+        }
         // 封装查询条件
         LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.like(StringUtils.isNotBlank(searchText), Team::getTeamName, searchText).or()
+        queryWrapper.ne(Team::getStatus, CONST_PRIVATE)
+                .like(StringUtils.isNotBlank(searchText), Team::getTeamName, searchText).or()
                 .like(StringUtils.isNotBlank(searchText), Team::getDescription, searchText).or()
-                .eq(!Objects.isNull(maxNum) && (maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END), Team::getMaxNum, maxNum).or()
-                .eq(!Objects.isNull(createUserId) && createUserId > 0, Team::getCreateUserId, createUserId).or()
-                .eq(!Objects.isNull(leaderId) && leaderId > 0, Team::getLeaderId, leaderId).or()
-                .eq(!Objects.isNull(status) && TEAM_STATUS_LIST.contains(status) && !CONST_ENCRYPTED.equals(status), Team::getStatus, status);
+                .in(!CollectionUtils.isEmpty(userIdList), Team::getCreateUserId, userIdList).or()
+                .in(!CollectionUtils.isEmpty(userIdList), Team::getLeaderId, userIdList).or()
+                .eq(!Objects.isNull(status) && TEAM_STATUS_LIST.contains(status) && !CONST_PRIVATE.equals(status), Team::getStatus, status);
         return queryWrapper;
     }
 

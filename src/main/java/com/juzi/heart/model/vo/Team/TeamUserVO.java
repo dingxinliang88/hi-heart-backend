@@ -5,6 +5,7 @@ import com.juzi.heart.model.vo.user.UserVO;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * 队伍用户封装信息
@@ -25,6 +26,7 @@ public class TeamUserVO implements Serializable {
         this.maxNum = team.getMaxNum();
         this.status = team.getStatus();
         this.teamAvatar = team.getTeamAvatar();
+        this.createTime = team.getCreateTime();
     }
 
     /**
@@ -66,6 +68,11 @@ public class TeamUserVO implements Serializable {
      * 队伍封面，可以为空，代码层面给默认值
      */
     private String teamAvatar;
+
+    /**
+     * 创建时间，默认为当前时间
+     */
+    private Date createTime;
 
     /**
      * 当前已经加入队伍的人数

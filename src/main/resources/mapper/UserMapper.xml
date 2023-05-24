@@ -28,4 +28,10 @@
         tags,createTime,updateTime,
         isDelete
     </sql>
+    <select id="listLeaderOrCreatorId" resultType="java.lang.Long">
+        select id
+        from hi_heart.user
+        where isDelete = 0
+          and userName like '%${searchText}%';
+    </select>
 </mapper>

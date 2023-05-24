@@ -44,6 +44,13 @@ public class TeamController {
         return ResultUtils.success(teamUserVOPage);
     }
 
+    @GetMapping("/list")
+    public BaseResponse<Page<TeamUserVO>> listTeam(PageRequest pageRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "查询参数不能为空");
+        Page<TeamUserVO> teamUserVOPage = teamService.listTeam(pageRequest, request);
+        return ResultUtils.success(teamUserVOPage);
+    }
+
     @PutMapping("/update")
     public BaseResponse<Boolean> updateTeam(@RequestBody TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(teamUpdateRequest), StatusCode.PARAMS_ERROR, "修改参数不能为空");

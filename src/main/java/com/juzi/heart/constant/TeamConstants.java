@@ -59,6 +59,11 @@ public interface TeamConstants {
     // endregion
 
     // region team status
+
+    /**
+     * 公开队伍状态
+     */
+    Integer CONST_PUBLIC = 0;
     /**
      * 加密队伍状态
      */

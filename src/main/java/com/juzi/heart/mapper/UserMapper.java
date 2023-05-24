@@ -4,6 +4,8 @@ import com.juzi.heart.model.entity.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 /**
  * @author codejuzi
  * @description 针对表【user】的数据库操作Mapper
@@ -13,6 +15,13 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface UserMapper extends BaseMapper<User> {
 
+    /**
+     * 根据搜索关键词查询用户id
+     *
+     * @param searchText 搜索关键词
+     * @return user id list
+     */
+    List<Long> listLeaderOrCreatorId(String searchText);
 }
 
 

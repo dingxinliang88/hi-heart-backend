@@ -9,6 +9,7 @@ import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author codejuzi
@@ -79,6 +80,15 @@ public interface TeamService extends IService<Team> {
      * @return true - 删除成功
      */
     Boolean transferTeam(TeamTransferRequest teamTransferRequest, HttpServletRequest request);
+
+    /**
+     * 分页获取所有公开和加密的队伍
+     *
+     * @param pageRequest 分页信息
+     * @param request     http request
+     * @return team user vo page
+     */
+    Page<TeamUserVO> listTeam(PageRequest pageRequest, HttpServletRequest request);
 
     /**
      * 展示我的队伍
