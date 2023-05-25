@@ -26,4 +26,16 @@
         where isDelete = 0
           and parentId = #{oldParentId};
     </update>
+    <select id="getChildTagByTagName" resultType="com.juzi.heart.model.entity.Tag">
+        select *
+        from tag
+        where isDelete = 0
+        <if test="tagNameList != null and tagNameList.size() > 0">
+            and tag.tagName in
+            <foreach item="item" index="index" collection="tagNameList"
+                     open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+    </select>
 </mapper>

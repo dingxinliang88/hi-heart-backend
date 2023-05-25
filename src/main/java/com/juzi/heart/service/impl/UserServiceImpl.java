@@ -10,17 +10,21 @@ import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.manager.AuthManager;
 import com.juzi.heart.manager.UserManager;
+import com.juzi.heart.mapper.TagMapper;
 import com.juzi.heart.mapper.UserMapper;
 import com.juzi.heart.model.dto.user.UserLoginRequest;
 import com.juzi.heart.model.dto.user.UserRegisterRequest;
 import com.juzi.heart.model.dto.user.UserUpdateRequest;
+import com.juzi.heart.model.entity.Tag;
 import com.juzi.heart.model.entity.User;
 import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.UserService;
+import com.juzi.heart.utils.TagSimilarityCalculatorUtils;
 import com.juzi.heart.utils.ThrowUtils;
 import com.juzi.heart.utils.ValidCheckUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -40,7 +44,8 @@ import java.util.stream.Collectors;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.UserConstants.*;
-import static com.juzi.heart.constant.UserRedisConstants.*;
+import static com.juzi.heart.constant.UserRedisConstants.CACHE_INDEX_PAGE_USER_KEY_PREFIX;
+import static com.juzi.heart.constant.UserRedisConstants.INDEX_CACHE_TTL;
 
 /**
  * @author codejuzi
@@ -58,7 +63,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     private UserManager userManager;
 
     @Resource
+    private TagMapper tagMapper;
+
+    @Resource
     private RedisTemplate<String, Object> redisTemplate;
+
+    private static final Gson GSON = new Gson();
+
+    private static final Map<Long, Double> PARENT_TAG_WEIGHTS = new HashMap<>() {{
+        put(1L, 5.0);
+        put(7L, 3.0);
+        put(12L, 1.0);
+        put(17L, 1.0);
+    }};
 
     @Override
     public Long userRegister(UserRegisterRequest userRegisterRequest) {
@@ -180,7 +197,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 先查出所有的用户
         List<User> userList = this.list();
         // 在内存中过滤出匹配的用户
-        Gson gson = new Gson();
         return userList.stream().filter(user -> {
             String tagStr = user.getTags();
             if (StringUtils.isBlank(tagStr)) {
@@ -189,7 +205,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             @SuppressWarnings("UnstableApiUsage")
             Type setType = new TypeToken<Set<String>>() {
             }.getType();
-            Set<String> tmpTagNameSet = gson.fromJson(tagStr, setType);
+            Set<String> tmpTagNameSet = GSON.fromJson(tagStr, setType);
             // 判空
             tmpTagNameSet = Optional.ofNullable(tmpTagNameSet).orElse(new HashSet<>());
             for (String tagName : tagList) {
@@ -227,7 +243,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String email = userUpdateRequest.getEmail();
         updateWrapper.set(StringUtils.isNotBlank(email), User::getEmail, email);
 
-        String tags = userUpdateRequest.getTags();
+        List<String> tagList = userUpdateRequest.getTagList();
+        String tags = GSON.toJson(tagList);
         updateWrapper.set(StringUtils.isNotBlank(tags), User::getTags, tags);
 
         return this.update(updateWrapper);
@@ -271,9 +288,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request) {
-        // TODO: 2023/5/22 写推荐算法来推荐用户
-        return this.doGetUserVOPage(pageRequest);
+    public Page<UserVO> recommendUsers(HttpServletRequest request) {
+        UserVO loginUser = userManager.getLoginUser(request);
+        String tags = loginUser.getTags();
+        ThrowUtils.throwIf(StringUtils.isBlank(tags), StatusCode.OPERATION_ERROR, "您还没有选择您的标签！");
+
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.ne(User::getId, loginUser.getId())
+                .isNotNull(User::getTags);
+        List<User> userList = this.list(queryWrapper);
+
+        @SuppressWarnings("UnstableApiUsage")
+        Type type = new TypeToken<List<String>>() {
+        }.getType();
+        List<String> loginUserTagList = GSON.fromJson(tags, type);
+        Map<Long, List<Long>> loginUserPIdChildTagIdListMap = this.getPIdChildTagIdListMap(loginUserTagList);
+        List<Pair<User, Double>> similarityList = new ArrayList<>();
+        for (User user : userList) {
+            List<String> userTagList = GSON.fromJson(user.getTags(), type);
+            Map<Long, List<Long>> userPIdChildTagIdListMap = this.getPIdChildTagIdListMap(userTagList);
+            // 计算相似度
+            double similarity = TagSimilarityCalculatorUtils.calculateSimilarity(loginUserPIdChildTagIdListMap,
+                    userPIdChildTagIdListMap, PARENT_TAG_WEIGHTS);
+            similarityList.add(new Pair<>(user, similarity));
+        }
+        // 按照相似度，从大到小排序
+        List<Pair<User, Double>> topUserPairList = similarityList.stream()
+                .sorted((a, b) -> (int) (b.getValue() - a.getValue()))
+                .limit(DEFAULT_PAGE_SIZE)
+                .collect(Collectors.toList());
+        Page<User> userPage = this.page(new Page<>(DEFAULT_PAGE_NUM, DEFAULT_PAGE_SIZE));
+        List<UserVO> userVOList = topUserPairList.stream().map(pair -> {
+            User user = pair.getKey();
+            return this.getUserVO(user);
+        }).collect(Collectors.toList());
+        Page<UserVO> userVOPage = new Page<>(
+                userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
+        );
+        userVOPage.setRecords(userVOList);
+        return userVOPage;
     }
 
     @Override
@@ -289,6 +342,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         );
         userVOPage.setRecords(userVOList);
         return userVOPage;
+    }
+
+    @Override
+    public Map<Long, List<Long>> getPIdChildTagIdListMap(List<String> childTagNameList) {
+        List<Tag> childTagList = tagMapper.getChildTagByTagName(childTagNameList);
+        Map<Long, List<Long>> parentIdToChildIdsMap = new HashMap<>();
+        for (Tag childTag : childTagList) {
+            Long parentId = childTag.getParentId();
+            List<Long> childIds = parentIdToChildIdsMap.getOrDefault(parentId, new ArrayList<>());
+            childIds.add(childTag.getId());
+            parentIdToChildIdsMap.put(parentId, childIds);
+        }
+        return parentIdToChildIdsMap;
     }
 }
 

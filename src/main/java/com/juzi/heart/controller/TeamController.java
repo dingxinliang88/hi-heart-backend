@@ -6,7 +6,9 @@ import com.juzi.heart.common.PageRequest;
 import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.model.dto.team.*;
+import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
+import com.juzi.heart.model.vo.user.UserVO;
 import com.juzi.heart.service.TeamService;
 import com.juzi.heart.utils.ResultUtils;
 import com.juzi.heart.utils.ThrowUtils;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Objects;
 
 import static com.juzi.heart.constant.TeamConstants.*;
@@ -44,6 +47,19 @@ public class TeamController {
         return ResultUtils.success(teamUserVOPage);
     }
 
+    @GetMapping("/query/id")
+    public BaseResponse<Team> getTeamById(SingleIdRequest singleIdRequest) {
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest) || singleIdRequest.getId() <= 0, StatusCode.PARAMS_ERROR, "查询参数不能为空");
+        Team team = teamService.getById(singleIdRequest.getId());
+        return ResultUtils.success(team);
+    }
+
+    @GetMapping("/query/join")
+    public BaseResponse<List<UserVO>> getJoinTeamUser(SingleIdRequest singleIdRequest) {
+        ThrowUtils.throwIf(Objects.isNull(singleIdRequest) || singleIdRequest.getId() <= 0, StatusCode.PARAMS_ERROR, "查询参数不能为空");
+        List<UserVO> userVOList = teamService.getJoinTeamUser(singleIdRequest.getId());
+        return ResultUtils.success(userVOList);
+    }
     @GetMapping("/list")
     public BaseResponse<Page<TeamUserVO>> listTeam(PageRequest pageRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(Objects.isNull(pageRequest), StatusCode.PARAMS_ERROR, "查询参数不能为空");

@@ -13,6 +13,7 @@ import javax.annotation.Resource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -121,7 +122,7 @@ class UserServiceTest {
         userService.userRegister(userRegisterRequest);
     }
 
-//    @Test
+    //    @Test
     void registerSuccess() {
         UserRegisterRequest userRegisterRequest = new UserRegisterRequest();
         // 正常插入
@@ -165,5 +166,17 @@ class UserServiceTest {
         doQuery();
         queryUserByTagListUseMemory();
         queryUserByTagListUseSql();
+    }
+
+    @Test
+    void getPIdChildTagIdListMap() {
+        List<String> tagNameList = Arrays.asList("Java", "C++", "乐观");
+        Map<Long, List<Long>> pIdChildTagIdListMap = userService.getPIdChildTagIdListMap(tagNameList);
+        for (Map.Entry<Long, List<Long>> entry : pIdChildTagIdListMap.entrySet()) {
+            Long key = entry.getKey();
+            System.out.println("key = " + key);
+            List<Long> value = entry.getValue();
+            System.out.println("value = " + value);
+        }
     }
 }

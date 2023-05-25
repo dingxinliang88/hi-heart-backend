@@ -41,11 +41,6 @@ public class UserTeam implements Serializable {
      */
     private Date createTime;
 
-    /**
-     * 修改时间，默认为当前时间
-     */
-    private Date updateTime;
-
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

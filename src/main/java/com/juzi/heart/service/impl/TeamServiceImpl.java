@@ -332,6 +332,19 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return getTeamUserVOPage(teamPage, loginUser, teamList);
     }
 
+    @Override
+    public List<UserVO> getJoinTeamUser(Long teamId) {
+        Team team = this.getById(teamId);
+        ThrowUtils.throwIf(Objects.isNull(team), StatusCode.PARAMS_ERROR, "队伍不存在");
+
+        List<Long> joinTeamUserIdList = userTeamMapper.getJoinTeamUserIdList(teamId);
+        ThrowUtils.throwIf(CollectionUtils.isEmpty(joinTeamUserIdList), StatusCode.SYSTEM_ERROR, "队伍用户表信息出错");
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.in(User::getId, joinTeamUserIdList);
+        List<User> userList = userService.list(queryWrapper);
+        return userList.stream().map(user -> userService.getUserVO(user)).collect(Collectors.toList());
+    }
+
 
     /**
      * 得到查询队伍的查询wrapper

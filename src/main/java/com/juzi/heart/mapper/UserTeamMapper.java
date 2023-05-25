@@ -4,6 +4,8 @@ import com.juzi.heart.model.entity.UserTeam;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 /**
  * @author codejuzi
  * @description 针对表【user_team(用户队伍表)】的数据库操作Mapper
@@ -54,6 +56,14 @@ public interface UserTeamMapper extends BaseMapper<UserTeam> {
      * @return true - 删除成功
      */
     Boolean deleteTeam(Long teamId);
+
+    /**
+     * 获取所有的加入队伍的用户id
+     *
+     * @param teamId team id
+     * @return user id list
+     */
+    List<Long> getJoinTeamUserIdList(Long teamId);
 }
 
 

@@ -7,6 +7,7 @@ import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.model.dto.team.*;
 import com.juzi.heart.model.entity.Team;
 import com.juzi.heart.model.vo.Team.TeamUserVO;
+import com.juzi.heart.model.vo.user.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -99,4 +100,12 @@ public interface TeamService extends IService<Team> {
      * @return team user vo list
      */
     Page<TeamUserVO> listMyTeam(Integer type, PageRequest pageRequest, HttpServletRequest request);
+
+    /**
+     * 获取加入队伍的用户
+     *
+     * @param teamId team id
+     * @return user vo list
+     */
+    List<UserVO> getJoinTeamUser(Long teamId);
 }

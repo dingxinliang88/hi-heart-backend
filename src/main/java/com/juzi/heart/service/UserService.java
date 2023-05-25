@@ -11,6 +11,7 @@ import com.juzi.heart.model.vo.user.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author codejuzi
@@ -123,11 +124,10 @@ public interface UserService extends IService<User> {
     /**
      * 根据用户标签推荐相似用户（分页）
      *
-     * @param pageRequest 分页请求信息
-     * @param request     http request
+     * @param request http request
      * @return user vo page
      */
-    Page<UserVO> recommendUsers(PageRequest pageRequest, HttpServletRequest request);
+    Page<UserVO> recommendUsers(HttpServletRequest request);
 
     /**
      * 分页获取用户信息
@@ -136,4 +136,12 @@ public interface UserService extends IService<User> {
      * @return user vo page
      */
     Page<UserVO> doGetUserVOPage(PageRequest pageRequest);
+
+    /**
+     * 根据子标签名来分类，得到(parentId, [childTagIdList])
+     *
+     * @param childTagNameList 子标签名称列表
+     * @return 分类后的map，用于得到向量
+     */
+    Map<Long, List<Long>> getPIdChildTagIdListMap(List<String> childTagNameList);
 }

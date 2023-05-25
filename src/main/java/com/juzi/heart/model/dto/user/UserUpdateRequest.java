@@ -2,6 +2,8 @@ package com.juzi.heart.model.dto.user;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * @author codejuzi
  */
@@ -46,5 +48,5 @@ public class UserUpdateRequest {
     /**
      * 标签列表
      */
-    private String tags;
+    private List<String> tagList;
 }

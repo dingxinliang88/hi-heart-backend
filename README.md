@@ -119,14 +119,13 @@ CREATE TABLE `team`
 
 ## 用户队伍表设计
 
-|     字段     |   数据类型   |          说明           |
-|:----------:|:--------:|:---------------------:|
-|     id     |  bigint  |       主键，自增，非空        |
-|   userId   |  bigint  |        用户id，非空        |
-|   teamId   |  bigint  |        队伍id，非空        |
-|  joinTime  | datetime |    加入时间，非空，默认为当前时间    |
-| createTime | datetime |     创建时间，默认为当前时间      |
-| updateTime | datetime |     修改时间，默认为当前时间      |
+|     字段     |   数据类型   |       说明        |
+|:----------:|:--------:|:---------------:|
+|     id     |  bigint  |    主键，自增，非空     |
+|   userId   |  bigint  |     用户id，非空     |
+|   teamId   |  bigint  |     队伍id，非空     |
+|  joinTime  | datetime | 加入时间，非空，默认为当前时间 |
+| createTime | datetime |  创建时间，默认为当前时间   |
 
 ```sql
 CREATE TABLE `user_team`
@@ -136,11 +135,9 @@ CREATE TABLE `user_team`
     `teamId`     bigint   NOT NULL COMMENT '队伍id，非空',
     `joinTime`   datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间，非空，默认为当前时间',
     `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，默认为当前时间',
-    `updateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间，默认为当前时间',
     PRIMARY KEY (`id`),
     KEY `idx_userId` (`userId`) COMMENT '为userId字段添加索引',
     KEY `idx_teamId` (`teamId`) COMMENT '为teamId字段添加索引'
 ) COMMENT ='用户队伍表';
 
 ```
-

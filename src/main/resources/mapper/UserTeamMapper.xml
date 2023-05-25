@@ -10,12 +10,11 @@
             <result property="teamId" column="teamId" jdbcType="BIGINT"/>
             <result property="joinTime" column="joinTime" jdbcType="TIMESTAMP"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id,userId,teamId,
-        joinTime,createTime,updateTime
+        joinTime,createTime
     </sql>
 
     <delete id="userQuitTeam">
@@ -47,5 +46,10 @@
         select count(1) as userHasJoinTeamNum
         from hi_heart.user_team
         where userId = #{userId};
+    </select>
+    <select id="getJoinTeamUserIdList" resultType="java.lang.Long">
+        select userId
+        from hi_heart.user_team
+        where teamId = #{teamId};
     </select>
 </mapper>
