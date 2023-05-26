@@ -3,6 +3,8 @@ package com.juzi.heart.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 import com.juzi.heart.common.SingleIdRequest;
 import com.juzi.heart.common.StatusCode;
 import com.juzi.heart.exception.BusinessException;
@@ -20,14 +22,16 @@ import com.juzi.heart.service.TagService;
 import com.juzi.heart.utils.ThrowUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Type;
 import java.util.*;
 
 import java.util.stream.Collectors;
@@ -61,6 +65,8 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+    private static final Gson GSON = new Gson();
+
 
     @Override
     public Long addTag(TagAddRequest tagAddRequest, HttpServletRequest request) {
@@ -90,7 +96,11 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         tag.setHasChildren(hasChildren);
         tag.setParentId(parentId);
         this.save(tag);
-        return tag.getId();
+        Long newTagId = tag.getId();
+
+        // 刷新标签缓存
+        tagManager.flushTagCache(this.list());
+        return newTagId;
     }
 
     @Override
@@ -116,16 +126,20 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
     @Override
     public List<TagVO> listTag() {
         // 先读缓存
-        HashOperations<String, String, List<String>> opsForHash = redisTemplate.opsForHash();
-        Map<String, List<String>> tagMap = opsForHash.entries(TAG_CACHE_KEY);
-        if (ObjectUtils.isNotEmpty(tagMap)) {
+        ListOperations<String, Object> opsForList = redisTemplate.opsForList();
+        List<Object> tagJsonList = opsForList.range(TAG_CACHE_KEY, 0, -1);
+        if (!CollectionUtils.isEmpty(tagJsonList)) {
             // 缓存不空，直接返回
-            return tagMap.entrySet().stream().map((entry) -> {
-                TagVO tagVO = new TagVO();
-                tagVO.setParentTagName(entry.getKey());
-                tagVO.setChildTagNameList(entry.getValue());
-                return tagVO;
-            }).collect(Collectors.toList());
+            List<TagVO> tagVOList = new ArrayList<>(tagJsonList.size());
+            @SuppressWarnings("UnstableApiUsage")
+            Type type = new TypeToken<TagVO>() {
+            }.getType();
+            for (Object o : tagJsonList) {
+                String tagJson = (String) o;
+                TagVO tagVO = GSON.fromJson(tagJson, type);
+                tagVOList.add(tagVO);
+            }
+            return tagVOList;
         }
         List<TagVO> tagVOList = tagManager.getTagVOList(this.list());
         // 写缓存
@@ -179,7 +193,11 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
             updateWrapper.set(Tag::getParentId, parentId);
             updateWrapper.set(Tag::getHasChildren, HAS_NO_CHILDREN);
         }
-        return this.update(updateWrapper);
+        boolean updateRes = this.update(updateWrapper);
+
+        // 刷新标签缓存
+        tagManager.flushTagCache(this.list());
+        return updateRes;
     }
 
 
@@ -203,7 +221,11 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
             this.removeBatchByIds(childTagIdList);
         }
         // 删除父标签
-        return this.removeById(id);
+        boolean removeRes = this.removeById(id);
+
+        // 刷新缓存
+        tagManager.flushTagCache(this.list());
+        return removeRes;
     }
 
 

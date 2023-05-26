@@ -43,6 +43,7 @@ public class TagPreCacheJob {
             if (rLock.tryLock(TAG_LOCK_WAIT_TIME, TAG_LOCK_LEASE_TIME, TimeUnit.MILLISECONDS)) {
                 log.info("====> get tag cache lock, threadId: {}", Thread.currentThread().getId());
                 List<TagVO> tagVOList = tagManager.getTagVOList(tagService.list());
+                // 写缓存
                 tagManager.cacheTagVOList(tagVOList);
             }
         } catch (InterruptedException e) {

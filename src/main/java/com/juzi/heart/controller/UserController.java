@@ -104,9 +104,9 @@ public class UserController {
         return ResultUtils.success(userVOPage);
     }
 
-    @GetMapping("/recommend")
-    public BaseResponse<Page<UserVO>> recommendUsers(HttpServletRequest request) {
-        Page<UserVO> recommendUserPage = userService.recommendUsers(request);
+    @GetMapping("/match")
+    public BaseResponse<Page<UserVO>> recommendMatchUsers(HttpServletRequest request) {
+        Page<UserVO> recommendUserPage = userService.recommendMatchUsers(request);
         return ResultUtils.success(recommendUserPage);
     }
 }

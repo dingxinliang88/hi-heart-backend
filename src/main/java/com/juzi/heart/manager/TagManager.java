@@ -1,8 +1,9 @@
 package com.juzi.heart.manager;
 
+import com.google.gson.Gson;
 import com.juzi.heart.model.entity.Tag;
 import com.juzi.heart.model.vo.tag.TagVO;
-import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.juzi.heart.constant.TagConstants.DEFAULT_GROUP;
 import static com.juzi.heart.constant.TagConstants.DEFAULT_PARENT_ID;
 import static com.juzi.heart.constant.TagRedisConstants.*;
 
@@ -27,6 +27,9 @@ public class TagManager {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+
+    private static final Gson GSON = new Gson();
+
     /**
      * 将tag list分组，封装成tag vo list
      *
@@ -35,27 +38,28 @@ public class TagManager {
      */
     public List<TagVO> getTagVOList(List<Tag> tagList) {
         // 分组，按照父标签名称 || 默认分组（存放所有的子标签）
-        Map<String, List<Tag>> parentTagMap = tagList.stream()
+        Map<Tag, List<Tag>> parentTagMap = tagList.stream()
                 .collect(Collectors.groupingBy(tag -> {
                     if (DEFAULT_PARENT_ID.equals(tag.getParentId())) {
-                        return tag.getTagName();
+                        return tag;
                     } else {
-                        // 根据父标签id获取父标签名称
+                        // 根据父标签id获取父标签
                         return tagList.stream()
                                 .filter(t -> t.getId().equals(tag.getParentId()))
-                                .map(Tag::getTagName)
-                                .findFirst().orElse(DEFAULT_GROUP);
+                                .findFirst().orElse(new Tag());
                     }
                 }));
 
         List<TagVO> tagVOList = new ArrayList<>();
-        for (String parentTagName : parentTagMap.keySet()) {
-            List<Tag> childrenTags = parentTagMap.get(parentTagName);
+        for (Tag parentTag : parentTagMap.keySet()) {
+            List<Tag> childrenTags = parentTagMap.get(parentTag);
             List<String> childTagNameList = childrenTags.stream()
                     .map(Tag::getTagName)
+                    .filter(tagName -> !tagName.equals(parentTag.getTagName()))
                     .collect(Collectors.toList());
             TagVO tagVO = new TagVO();
-            tagVO.setParentTagName(parentTagName);
+            tagVO.setParentTagId(parentTag.getId());
+            tagVO.setParentTagName(parentTag.getTagName());
             tagVO.setChildTagNameList(childTagNameList);
             tagVOList.add(tagVO);
         }
@@ -68,14 +72,11 @@ public class TagManager {
      * @param tagVOList tag vo list
      */
     public void cacheTagVOList(List<TagVO> tagVOList) {
-        HashOperations<String, String, List<String>> opsForHash = redisTemplate.opsForHash();
-        // 写缓存，key|filed|value => TAG_CACHE_KEY | parentTagName | childTagNameList
+        // list存储
+        ListOperations<String, Object> opsForList = redisTemplate.opsForList();
         for (TagVO tagVO : tagVOList) {
-            opsForHash.put(
-                    TAG_CACHE_KEY,
-                    tagVO.getParentTagName(),
-                    tagVO.getChildTagNameList()
-            );
+            String tagVOJson = GSON.toJson(tagVO);
+            opsForList.rightPush(TAG_CACHE_KEY, tagVOJson);
         }
         // 设置过期时间
         redisTemplate.expire(TAG_CACHE_KEY, TAG_CACHE_TTL, TimeUnit.MINUTES);
@@ -91,5 +92,17 @@ public class TagManager {
         opsForSet.add(P_TAG_ID_KEY, parentTagIdList);
         // 设置过期时间
         redisTemplate.expire(P_TAG_ID_KEY, P_TAG_ID_CACHE_TTL, TimeUnit.HOURS);
+    }
+
+    /**
+     * 刷新缓存信息
+     */
+    public void flushTagCache(List<Tag> tagList) {
+        // 删除缓存
+        redisTemplate.delete(TAG_CACHE_KEY);
+
+        List<TagVO> tagVOList = this.getTagVOList(tagList);
+        // 写缓存
+        this.cacheTagVOList(tagVOList);
     }
 }

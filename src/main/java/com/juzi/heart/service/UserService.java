@@ -127,7 +127,7 @@ public interface UserService extends IService<User> {
      * @param request http request
      * @return user vo page
      */
-    Page<UserVO> recommendUsers(HttpServletRequest request);
+    Page<UserVO> recommendMatchUsers(HttpServletRequest request);
 
     /**
      * 分页获取用户信息

@@ -14,6 +14,11 @@ public class TagVO implements Serializable {
     private static final long serialVersionUID = 6056363453515780280L;
 
     /**
+     * 父标签id
+     */
+    private Long parentTagId;
+
+    /**
      * 父标签名称
      */
     private String parentTagName;

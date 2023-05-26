@@ -1,5 +1,7 @@
 package com.juzi.heart.service.impl;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -70,10 +72,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     private static final Gson GSON = new Gson();
 
+    /**
+     * 父标签权重
+     */
     private static final Map<Long, Double> PARENT_TAG_WEIGHTS = new HashMap<>() {{
+        // 学习方向
         put(1L, 5.0);
+        // 目标
         put(7L, 3.0);
+        // 状态
         put(12L, 1.0);
+        // 阶段
         put(17L, 1.0);
     }};
 
@@ -101,6 +110,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             newUser.setUserAccount(userAccount);
             newUser.setUserPassword(encryptedPassword);
             newUser.setUserAvatar(DEFAULT_AVATAR_URL);
+            newUser.setGender(MAN);
             // 插入数据
             boolean result = this.save(newUser);
             ThrowUtils.throwIf(!result, StatusCode.SYSTEM_ERROR, "插入数据失败");
@@ -139,7 +149,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return userVO;
         }
     }
-
 
     @Override
     public List<User> queryUser(String searchText) {
@@ -222,6 +231,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         ThrowUtils.throwIf(Objects.isNull(userUpdateRequest), StatusCode.PARAMS_ERROR, "用户修改信息为空！");
         Long id = userUpdateRequest.getId();
         authManager.adminOrMe(id, request);
+
+        User userFromDb = this.getById(id);
+
+        if (!needUpdate(userFromDb, userUpdateRequest)) {
+            return Boolean.TRUE;
+        }
         LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(User::getId, id);
 
@@ -244,10 +259,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         updateWrapper.set(StringUtils.isNotBlank(email), User::getEmail, email);
 
         List<String> tagList = userUpdateRequest.getTagList();
-        String tags = GSON.toJson(tagList);
-        updateWrapper.set(StringUtils.isNotBlank(tags), User::getTags, tags);
+        if (!CollectionUtils.isEmpty(tagList)) {
+            String tags = GSON.toJson(tagList);
+            updateWrapper.set(StringUtils.isNotBlank(tags), User::getTags, tags);
+        }
 
-        return this.update(updateWrapper);
+        boolean updateRes = this.update(updateWrapper);
+
+        // 更新用户的登录态
+        User user = this.getById(id);
+        UserVO userVO = this.getUserVO(user);
+        HttpSession session = request.getSession();
+        session.setAttribute(USER_LOGIN_STATUS_KEY, userVO);
+
+        return updateRes;
     }
 
     @Override
@@ -288,7 +313,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public Page<UserVO> recommendUsers(HttpServletRequest request) {
+    public Page<UserVO> recommendMatchUsers(HttpServletRequest request) {
         UserVO loginUser = userManager.getLoginUser(request);
         String tags = loginUser.getTags();
         ThrowUtils.throwIf(StringUtils.isBlank(tags), StatusCode.OPERATION_ERROR, "您还没有选择您的标签！");
@@ -312,20 +337,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     userPIdChildTagIdListMap, PARENT_TAG_WEIGHTS);
             similarityList.add(new Pair<>(user, similarity));
         }
-        // 按照相似度，从大到小排序
+        // 按照相似度，从大到小排序，取前10个
         List<Pair<User, Double>> topUserPairList = similarityList.stream()
-                .sorted((a, b) -> (int) (b.getValue() - a.getValue()))
+                .sorted(Comparator.comparing(Pair::getValue, Comparator.reverseOrder()))
                 .limit(DEFAULT_PAGE_SIZE)
                 .collect(Collectors.toList());
-        Page<User> userPage = this.page(new Page<>(DEFAULT_PAGE_NUM, DEFAULT_PAGE_SIZE));
-        List<UserVO> userVOList = topUserPairList.stream().map(pair -> {
-            User user = pair.getKey();
-            return this.getUserVO(user);
-        }).collect(Collectors.toList());
-        Page<UserVO> userVOPage = new Page<>(
-                userPage.getCurrent(), userPage.getSize(), userPage.getTotal()
-        );
+
+        List<UserVO> userVOList = topUserPairList.stream()
+                .map(pair -> getUserVO(pair.getKey()))
+                .collect(Collectors.toList());
+
+        Page<UserVO> userVOPage = new Page<>(DEFAULT_PAGE_NUM, DEFAULT_PAGE_SIZE, userVOList.size());
         userVOPage.setRecords(userVOList);
+
         return userVOPage;
     }
 
@@ -355,6 +379,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             parentIdToChildIdsMap.put(parentId, childIds);
         }
         return parentIdToChildIdsMap;
+    }
+
+    /**
+     * 检测是否需要更新用户信息
+     *
+     * @param userFromDb        数据库中的用户信息
+     * @param userUpdateRequest 用户更新请求封装信息
+     * @return true - 需要更新
+     */
+    private boolean needUpdate(User userFromDb, UserUpdateRequest userUpdateRequest) {
+        String userName = userUpdateRequest.getUserName();
+        String userAvatar = userUpdateRequest.getUserAvatar();
+        String userProfile = userUpdateRequest.getUserProfile();
+        Integer gender = userUpdateRequest.getGender();
+        String phone = userUpdateRequest.getPhone();
+        String email = userUpdateRequest.getEmail();
+        List<String> tagList = userUpdateRequest.getTagList();
+
+        boolean eUserName = false;
+        if (StringUtils.isNotBlank(userName)) {
+            eUserName = userFromDb.getUserName().equals(userName);
+        }
+
+        boolean eUserAvatar = false;
+        if (StringUtils.isNotBlank(userAvatar)) {
+            eUserAvatar = userFromDb.getUserAvatar().equals(userAvatar);
+        }
+
+        boolean eUserProfile = false;
+        if (StringUtils.isNotBlank(userProfile)) {
+            eUserProfile = userProfile.equals(userFromDb.getUserProfile());
+        }
+
+        boolean ePhone = false;
+        if (StringUtils.isNotBlank(phone)) {
+            ePhone = phone.equals(userFromDb.getPhone());
+        }
+
+        boolean eEmail = false;
+        if (StringUtils.isNotBlank(email)) {
+            eEmail = email.equals(userFromDb.getEmail());
+        }
+
+        boolean eGender = false;
+        if (MAN.equals(gender) || WOMAN.equals(gender)) {
+            eGender = userFromDb.getGender().equals(gender);
+        }
+
+        boolean eTag = false;
+        if (!CollectionUtils.isEmpty(tagList)) {
+            String tagJson = GSON.toJson(tagList);
+            eTag = tagJson.equals(userFromDb.getTags());
+        }
+
+        return !(eUserName && eUserAvatar && eUserProfile && eEmail && ePhone && eGender && eTag);
     }
 }
 

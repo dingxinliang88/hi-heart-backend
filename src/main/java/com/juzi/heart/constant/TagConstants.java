@@ -23,8 +23,4 @@ public interface TagConstants {
      */
     Long DEFAULT_PARENT_ID = 0L;
 
-    /**
-     * 默认分组
-     */
-    String DEFAULT_GROUP = "default_children_group";
 }

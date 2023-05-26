@@ -1,8 +1,5 @@
 package com.juzi.heart.service.impl;
 
-import java.util.ArrayList;
-import java.util.Date;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -28,20 +25,28 @@ import com.juzi.heart.service.UserTeamService;
 import com.juzi.heart.service.strategy.TeamListStrategy;
 import com.juzi.heart.service.strategy.TeamListStrategyRegistry;
 import com.juzi.heart.utils.ThrowUtils;
+import com.juzi.heart.utils.ValidCheckUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_NUM;
 import static com.juzi.heart.constant.BusinessConstants.DEFAULT_PAGE_SIZE;
 import static com.juzi.heart.constant.TeamConstants.*;
+import static com.juzi.heart.constant.TeamRedisConstants.*;
 import static com.juzi.heart.constant.UserConstants.ADMIN;
 import static com.juzi.heart.model.enums.TeamStatusEnums.TEAM_STATUS_LIST;
 
@@ -50,6 +55,7 @@ import static com.juzi.heart.model.enums.TeamStatusEnums.TEAM_STATUS_LIST;
  * @description 针对表【team(队伍表)】的数据库操作Service实现
  * @createDate 2023-05-22 16:16:12
  */
+@Slf4j
 @Service
 public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         implements TeamService {
@@ -78,6 +84,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     @Resource
     private UserTeamMapper userTeamMapper;
 
+    @Resource
+    private RedissonClient redissonClient;
+
     @Transactional(rollbackFor = {BusinessException.class})
     @Override
     public Long createTeam(TeamAddRequest teamAddRequest, HttpServletRequest request) {
@@ -88,39 +97,41 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Integer maxNum = teamAddRequest.getMaxNum();
         Integer status = teamAddRequest.getStatus();
         String teamPassword = teamAddRequest.getTeamPassword();
-        checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
+        ValidCheckUtils.checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
 
         // 一个用户最多创建5个队伍
         UserVO loginUser = userManager.getLoginUser(request);
         Long loginUserId = loginUser.getId();
-        int createdTeamNum = teamMapper.getTeamNumByUserId(loginUserId);
-        ThrowUtils.throwIf(!ADMIN.equals(loginUser.getUserRole()) && createdTeamNum >= USER_CREATE_TEAM_MAX_NUM,
-                StatusCode.NO_AUTH_ERROR, "您创建的队伍数已达上限5个");
+        synchronized (loginUserId.toString().intern()) {
+            int createdTeamNum = teamMapper.getTeamNumByUserId(loginUserId);
+            ThrowUtils.throwIf(!ADMIN.equals(loginUser.getUserRole()) && createdTeamNum >= USER_CREATE_TEAM_MAX_NUM,
+                    StatusCode.NO_AUTH_ERROR, "您创建的队伍数已达上限5个");
 
-        // 插入队伍信息到队伍表
-        Team team = new Team();
-        team.setTeamName(teamName);
-        description = StringUtils.isBlank(description) ? DEFAULT_TEAM_DESC : description;
-        team.setDescription(description);
-        team.setMaxNum(maxNum);
-        team.setCreateUserId(loginUserId);
-        team.setLeaderId(loginUserId);
-        team.setStatus(status);
-        team.setTeamPassword(teamPassword);
-        String teamAvatar = teamAddRequest.getTeamAvatar();
-        teamAvatar = StringUtils.isBlank(teamAvatar) ? DEFAULT_TEAM_AVATAR : teamAvatar;
-        team.setTeamAvatar(teamAvatar);
-        this.save(team);
+            // 插入队伍信息到队伍表
+            Team team = new Team();
+            team.setTeamName(teamName);
+            description = StringUtils.isBlank(description) ? DEFAULT_TEAM_DESC : description;
+            team.setDescription(description);
+            team.setMaxNum(maxNum);
+            team.setCreateUserId(loginUserId);
+            team.setLeaderId(loginUserId);
+            team.setStatus(status);
+            team.setTeamPassword(teamPassword);
+            String teamAvatar = teamAddRequest.getTeamAvatar();
+            teamAvatar = StringUtils.isBlank(teamAvatar) ? DEFAULT_TEAM_AVATAR : teamAvatar;
+            team.setTeamAvatar(teamAvatar);
+            this.save(team);
 
-        Long teamId = team.getId();
-        // 插入用户队伍关系到用户队伍关系表
-        UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(loginUserId);
-        userTeam.setTeamId(teamId);
-        userTeam.setJoinTime(new Date());
-        userTeamService.save(userTeam);
+            Long teamId = team.getId();
+            // 插入用户队伍关系到用户队伍关系表
+            UserTeam userTeam = new UserTeam();
+            userTeam.setUserId(loginUserId);
+            userTeam.setTeamId(teamId);
+            userTeam.setJoinTime(new Date());
+            userTeamService.save(userTeam);
 
-        return teamId;
+            return teamId;
+        }
     }
 
     @Override
@@ -178,42 +189,59 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Long userId = loginUser.getId();
         Long teamId = teamJoinRequest.getTeamId();
 
-        // 队伍必须存在，未满
-        Team team = this.getById(teamId);
-        ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "待加入队伍不存在！");
-        Integer hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
-        ThrowUtils.throwIf(team.getMaxNum() < hasJoinTeamNum, StatusCode.NO_AUTH_ERROR, "该队伍已满员！");
+        String joinTeamLockKey = JOIN_TEAM_LOCK_PREFIX + teamId;
+        RLock rLock = redissonClient.getLock(joinTeamLockKey);
+        boolean saveRes = false;
+        try {
+            if (rLock.tryLock(JOIN_TEAM_LOCK_WAIT_TIME, JOIN_TEAM_LOCK_LEASE_TIME, TimeUnit.MILLISECONDS)) {
+                log.info("====> get join team lock, threadId: {}", Thread.currentThread().getId());
+                // 队伍必须存在，未满
+                Team team = this.getById(teamId);
+                ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "待加入队伍不存在！");
+                Integer hasJoinTeamNum = userTeamMapper.hasJoinTeamNum(teamId);
+                ThrowUtils.throwIf(team.getMaxNum() < hasJoinTeamNum, StatusCode.NO_AUTH_ERROR, "该队伍已满员！");
 
-        // 不能加入队长为自己的队伍
-        Long teamLeaderId = team.getLeaderId();
+                // 不能加入队长为自己的队伍
+                Long teamLeaderId = team.getLeaderId();
 
-        ThrowUtils.throwIf(userId.equals(teamLeaderId), StatusCode.OPERATION_ERROR, "不能加入自己的队伍");
-        // 不能重复加入已经加入的队伍
-        Boolean hasJoinTeam = userTeamMapper.userHasJoinTeam(teamId, userId);
-        ThrowUtils.throwIf(hasJoinTeam, StatusCode.OPERATION_ERROR, "您已在队伍内！");
+                ThrowUtils.throwIf(userId.equals(teamLeaderId), StatusCode.OPERATION_ERROR, "不能加入自己的队伍");
+                // 不能重复加入已经加入的队伍
+                Boolean hasJoinTeam = userTeamMapper.userHasJoinTeam(teamId, userId);
+                ThrowUtils.throwIf(hasJoinTeam, StatusCode.OPERATION_ERROR, "您已在队伍内！");
 
-        // 用户最多加入20支队伍
-        int userHasJoinTeamNum = userTeamMapper.userHasJoinTeamNum(userId);
-        ThrowUtils.throwIf(userHasJoinTeamNum >= USER_JOIN_TEAM_MAX_NUM,
-                StatusCode.NO_AUTH_ERROR, "您加入的队伍数量已达上限");
+                // 用户最多加入20支队伍
+                int userHasJoinTeamNum = userTeamMapper.userHasJoinTeamNum(userId);
+                ThrowUtils.throwIf(userHasJoinTeamNum >= USER_JOIN_TEAM_MAX_NUM,
+                        StatusCode.NO_AUTH_ERROR, "您加入的队伍数量已达上限");
 
-        // 禁止加入私有的队伍（只能邀请）
-        Integer status = team.getStatus();
-        ThrowUtils.throwIf(CONST_PRIVATE.equals(status), StatusCode.NO_AUTH_ERROR, "不能加入私有的队伍！");
+                // 禁止加入私有的队伍（只能邀请）
+                Integer status = team.getStatus();
+                ThrowUtils.throwIf(CONST_PRIVATE.equals(status), StatusCode.NO_AUTH_ERROR, "不能加入私有的队伍！");
 
-        // 如果队伍是加密的，密码要匹配
-        if (CONST_ENCRYPTED.equals(status)) {
-            String teamPassword = teamJoinRequest.getTeamPassword();
-            ThrowUtils.throwIf(StringUtils.isBlank(teamPassword), StatusCode.PARAMS_ERROR, "入队密码不能为空");
-            ThrowUtils.throwIf(!team.getTeamPassword().equals(teamPassword), StatusCode.NO_AUTH_ERROR, "入队密码错误");
+                // 如果队伍是加密的，密码要匹配
+                if (CONST_ENCRYPTED.equals(status)) {
+                    String teamPassword = teamJoinRequest.getTeamPassword();
+                    ThrowUtils.throwIf(StringUtils.isBlank(teamPassword), StatusCode.PARAMS_ERROR, "入队密码不能为空");
+                    ThrowUtils.throwIf(!team.getTeamPassword().equals(teamPassword), StatusCode.NO_AUTH_ERROR, "入队密码错误");
+                }
+
+                // 用户队伍信息入库
+                UserTeam userTeam = new UserTeam();
+                userTeam.setUserId(userId);
+                userTeam.setTeamId(teamId);
+                userTeam.setJoinTime(new Date());
+                saveRes = userTeamService.save(userTeam);
+            }
+        } catch (InterruptedException e) {
+            log.error("join team error, ", e);
+        } finally {
+            // 释放锁，且只能释放自己的锁
+            if (rLock.isHeldByCurrentThread()) {
+                log.info("<==== un join team lock, threadId: {}", Thread.currentThread().getId());
+                rLock.unlock();
+            }
         }
-
-        // 用户队伍信息入库
-        UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(userId);
-        userTeam.setTeamId(teamId);
-        userTeam.setJoinTime(new Date());
-        return userTeamService.save(userTeam);
+        return saveRes;
     }
 
     @Transactional(rollbackFor = {BusinessException.class})
@@ -263,15 +291,33 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         ThrowUtils.throwIf(Objects.isNull(singleIdRequest), StatusCode.PARAMS_ERROR, "删除队伍请求信息不能为空！");
         Long teamId = singleIdRequest.getId();
         Team team = this.getById(teamId);
-        ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "要删除的队伍不存在");
-        // 管理员 || 队长
-        authManager.adminOrMe(team.getLeaderId(), request);
 
-        // 删除队伍消息
-        this.removeById(teamId);
+        String deleteTeamLockKey = DELETE_TEAM_LOCK_PREFIX + teamId;
+        RLock rLock = redissonClient.getLock(deleteTeamLockKey);
+        boolean deleteRes = false;
+        try {
+            if (rLock.tryLock(DELETE_TEAM_LOCK_WAIT_TIME, DELETE_TEAM_LOCK_LEASE_TIME, TimeUnit.MILLISECONDS)) {
+                log.info("====> get delete team lock, threadId: {}", Thread.currentThread().getId());
+                ThrowUtils.throwIf(Objects.isNull(team), StatusCode.NOT_FOUND_ERROR, "要删除的队伍不存在");
+                // 管理员 || 队长
+                authManager.adminOrMe(team.getLeaderId(), request);
 
-        // 删除队伍用户关系
-        return userTeamMapper.deleteTeam(teamId);
+                // 删除队伍消息
+                this.removeById(teamId);
+
+                // 删除队伍用户关系
+                deleteRes =  userTeamMapper.deleteTeam(teamId);
+            }
+        } catch (InterruptedException e) {
+            log.error("delete team error, ", e);
+        } finally {
+            // 释放锁，且只能释放自己的锁
+            if (rLock.isHeldByCurrentThread()) {
+                log.info("<==== un delete team lock, threadId: {}", Thread.currentThread().getId());
+                rLock.unlock();
+            }
+        }
+        return deleteRes;
     }
 
     @Override
@@ -345,7 +391,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return userList.stream().map(user -> userService.getUserVO(user)).collect(Collectors.toList());
     }
 
-
     /**
      * 得到查询队伍的查询wrapper
      *
@@ -412,7 +457,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Integer status = teamUpdateRequest.getStatus();
         String teamPassword = teamUpdateRequest.getTeamPassword();
         // 校验参数是否合法
-        checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
+        ValidCheckUtils.checkTeamInfoValid(teamName, description, maxNum, status, teamPassword);
 
         String teamAvatar = teamUpdateRequest.getTeamAvatar();
 
@@ -425,33 +470,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return !(eTeamName && eDesc && eStatus && eMaxNum && ePwd && eTeamAvatar);
     }
 
-    /**
-     * 校验队伍参数是否合法（新增，修改）
-     *
-     * @param teamName     队伍名称
-     * @param description  队伍描述
-     * @param maxNum       队伍最大人数
-     * @param status       队伍状态
-     * @param teamPassword 队伍密码
-     */
-    private void checkTeamInfoValid(String teamName, String description,
-                                    Integer maxNum, Integer status, String teamPassword) {
-        // 队伍标题不能为空 && 队伍标题长度 <= 20
-        ThrowUtils.throwIf(StringUtils.isBlank(teamName), StatusCode.PARAMS_ERROR, "队伍名称不能为空！");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(teamName) && teamName.length() > TEAM_NAME_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "队伍名称长度不能超过20");
-        // 队伍描述长度<= 512
-        ThrowUtils.throwIf(StringUtils.isNotBlank(description) && description.length() > TEAM_DESC_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "队伍描述过长！");
-        // 队伍最大人数 1 <  maxNum  <= 20
-        ThrowUtils.throwIf(maxNum <= TEAM_MAX_NUM_BEGIN || maxNum >= TEAM_MAX_NUM_END,
-                StatusCode.PARAMS_ERROR, "队伍最大人数在2到20之间！");
-        // status不能为空，默认为公开（0），如果status为加密状态（2），则一定要有密码，且密码长度 <= 32
-        ThrowUtils.throwIf(CONST_ENCRYPTED.equals(status) && StringUtils.isBlank(teamPassword),
-                StatusCode.PARAMS_ERROR, "加密队伍密码不能为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(teamPassword) && teamPassword.length() > TEAM_PWD_MAX_LEN,
-                StatusCode.PARAMS_ERROR, "密码长度不能大于32");
-    }
 
     /**
      * 封装 team user vo page

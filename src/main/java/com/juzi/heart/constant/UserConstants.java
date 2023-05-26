@@ -47,8 +47,15 @@ public interface UserConstants {
      */
     String USER_LOGIN_STATUS_KEY = "user_login";
 
+    /**
+     * 性别-男
+     */
     Integer MAN = 1;
-    Integer WOMAN = 2;
+
+    /**
+     * 性别-女
+     */
+    Integer WOMAN = 0;
     // endregion
 
     // region 用户角色
@@ -62,9 +69,5 @@ public interface UserConstants {
      */
     Integer ADMIN = 1;
 
-    /**
-     * 被封号的用户
-     */
-    Integer BANNED = 2;
     // endregion
 }

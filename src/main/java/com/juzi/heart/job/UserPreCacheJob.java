@@ -43,7 +43,7 @@ public class UserPreCacheJob {
     /**
      * 重点用户id
      */
-    private static final List<Long> MAIN_USER_ID_LIST = Arrays.asList(1L, 2L);
+    private static final List<Long> MAIN_USER_ID_LIST = Arrays.asList(1L, 2L, 4L);
 
     /**
      * 每天早上八点执行一次，目标用户是VIP用户
@@ -59,7 +59,8 @@ public class UserPreCacheJob {
                 for (Long userId : MAIN_USER_ID_LIST) {
                     String recommendUserKey = String.format("%s:%s", CACHE_INDEX_PAGE_USER_KEY_PREFIX, userId);
                     Page<User> userPage = userService.page(new Page<>(DEFAULT_PAGE_NUM, DEFAULT_PAGE_SIZE));
-                    List<UserVO> userVOList = userPage.getRecords().stream().map(userService::getUserVO).collect(Collectors.toList());
+                    List<UserVO> userVOList = userPage.getRecords().stream()
+                            .map(userService::getUserVO).collect(Collectors.toList());
                     Page<UserVO> userVOPage = new Page<>(userPage.getCurrent(), userPage.getSize(), userPage.getTotal());
                     userVOPage.setRecords(userVOList);
                     // 写缓存
