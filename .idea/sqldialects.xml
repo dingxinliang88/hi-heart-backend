@@ -3,6 +3,10 @@
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/README.md" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/sql/create_table.sql" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/sql/tag.sql" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/sql/team.sql" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/sql/user.sql" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/sql/user_team.sql" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/src/main/resources/mapper/TagMapper.xml" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/src/main/resources/mapper/TeamMapper.xml" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/src/main/resources/mapper/UserMapper.xml" dialect="MySQL" />

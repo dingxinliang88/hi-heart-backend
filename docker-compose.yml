@@ -1,0 +1,48 @@
+version: "3"
+
+services:
+  hi-heart-pro:
+    image: hi-heart-backend:1.0
+    container_name: hi-heart
+    ports:
+      - "8102:8102"
+    volumes:
+      - /app/hi-heart-pro:/data
+    networks:
+      - codejuzi_net
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.0.29
+    container_name: hi_heart_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: '12345678'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'no'
+      MYSQL_DATABASE: 'hi_heart'
+      MYSQL_USER: 'codejuzi'
+      MYSQL_PASSWORD: 'codejuzi123'
+    ports:
+      - "3306:3306"
+    volumes:
+      - /app/mysql/db:/var/lib/mysql
+      - /app/mysql/conf/my.cnf:/etc/my.cnf
+      - /app/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - codejuzi_net
+    command: --default-authentication-plugin=mysql_native_password #解决外部无法访问
+
+  redis:
+    image: redis:6.0.8
+    container_name: hi_heart_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - /app/redis/redis.conf:/etc/redis/redis.conf
+      - /app/redis/data:/data
+    networks:
+      - codejuzi_net
+    command: redis-server /etc/redis/redis.conf
+networks:
+  codejuzi_net:

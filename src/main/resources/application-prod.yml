@@ -1,7 +1,7 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://mysql:3306/hi_heart
+    url: jdbc:mysql://mysql:3306/hi_heart?useUnicode=true&characterEncoding=utf-8&useSSL=false
     username: root
     password: 12345678
   mvc:
@@ -9,9 +9,9 @@ spring:
       matching-strategy: ant_path_matcher
   # redis配置
   redis:
-    host: localhost
+    host: redis
     port: 6379
-    database: 0
+    database: 4
 
 mybatis-plus:
   global-config:
